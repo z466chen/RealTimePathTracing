@@ -15,8 +15,9 @@
 // to turn it on.
 //#define RENDER_BOUNDING_VOLUMES
 
-struct Triangle
+class Triangle
 {
+public:
 	size_t v1;
 	size_t v2;
 	size_t v3;
@@ -26,13 +27,15 @@ struct Triangle
 		, v2( pv2 )
 		, v3( pv3 )
 	{}
+
 };
 
 // A polygonal mesh.
 class Mesh : public Primitive {
 public:
   Mesh( const std::string& fname );
-  
+  virtual Intersection intersect(Ray ray);
+  virtual ~Mesh();
 private:
 	std::vector<glm::vec3> m_vertices;
 	std::vector<Triangle> m_faces;

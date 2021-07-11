@@ -1,4 +1,4 @@
 #pragma once
 
-#define EPSILON 0.00001
+#define EPSILON 0.01
 // #define PATH_TRACING

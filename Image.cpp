@@ -16,6 +16,27 @@ Image::Image()
 {
 }
 
+Image::Image(uint width, uint height,const char *filename) {
+  m_height = height;
+  m_width = width;
+
+  size_t numElements = m_width * m_height * m_colorComponents;
+	m_data = new double[numElements];
+  memset(m_data, 0, numElements*sizeof(double));
+
+  uint img_height, img_width;
+  std::vector<unsigned char> img;
+  unsigned int error = lodepng::decode(img, img_width, img_height, filename, LCT_RGB);
+  if (error != 0) {    
+    return;
+  }
+
+	m_data = new double[numElements];
+  for (int i = 0; i < numElements ; ++i) {
+    m_data[i] = img[i]/255.0f;
+  }
+}
+
 //---------------------------------------------------------------------------------------
 Image::Image(
 		uint width,

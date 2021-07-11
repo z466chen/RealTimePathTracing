@@ -8,7 +8,7 @@
 
 class PhongMaterial : public Material {
 public:
-  PhongMaterial(const glm::vec3& kd, const glm::vec3& ks, double shininess);
+  PhongMaterial(const glm::vec3& kd, const glm::vec3& ks, double shininess, MaterialType type);
   virtual ~PhongMaterial();
 
   glm::vec3 m_kd;

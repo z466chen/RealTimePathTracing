@@ -10,6 +10,7 @@ Material::Material()
 void Material::snell(const double &theta_i, double & theta_t, float n1, float n2) const {
 	double sin_i = sin(theta_i);
 	double sin_t = n1 * sin_i / n2;
+	if (sin_t > 1.0f) sin_t = 1.0f;
 
 	theta_t = asin(sin_t);
 }

@@ -33,7 +33,7 @@ Intersection NonhierSphere::intersect(Ray ray) {
 
     glm::vec3 temp = ray.origin - m_pos;
     double A = glm::dot(ray.direction, ray.direction);
-    double B = 2*glm::dot(ray.direction, temp);
+    double B = 2.0f*glm::dot(ray.direction, temp);
     double C = glm::dot(temp, temp) - m_radius*m_radius;
 
     double roots[2];
@@ -44,10 +44,7 @@ Intersection NonhierSphere::intersect(Ray ray) {
     if (code == 2) {
         if (roots[0] > roots[1]) std::swap(roots[0], roots[1]);
         t = roots[0];
-        if (roots[0] < 0) {
-            t = roots[1];
-            result.isInside = true;
-        }
+        if (t < 0) t = roots[1];
     }
 
     if (t < 0) return result;
@@ -55,8 +52,7 @@ Intersection NonhierSphere::intersect(Ray ray) {
     result.intersects = true;
     result.t = t;
     result.position = ray.origin + (float)t*ray.direction;
-    result.normal = (result.isInside)? -glm::normalize(result.position - m_pos):
-        glm::normalize(result.position - m_pos);
+    result.normal = glm::normalize(result.position - m_pos);
     result.obj = this;
 }
 
@@ -107,14 +103,13 @@ Intersection NonhierBox::intersect(Ray ray) {
 
     Intersection result = Intersection();
 
-    if (uppert.first > EPSILON && lowert.first < uppert.first) {
-        if (lowert.first > EPSILON) {
+    if (uppert.first > 0 && lowert.first < uppert.first) {
+        if (lowert.first > 0) {
             result.t = lowert.first;
             result.normal = normals[lowert.second];
         } else {
             result.t = uppert.first;
-            result.isInside = true;
-            result.normal = -normals[uppert.second];
+            result.normal = normals[uppert.second];
         }
 
         result.intersects = true;

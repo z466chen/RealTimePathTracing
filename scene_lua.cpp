@@ -361,7 +361,9 @@ extern "C"
 int gr_material_cmd(lua_State* L)
 {
   GRLUA_DEBUG_CALL;
-  
+
+  MaterialType type = MaterialType::DIFFUSE;
+
   gr_material_ud* data = (gr_material_ud*)lua_newuserdata(L, sizeof(gr_material_ud));
   data->material = 0;
   
@@ -370,10 +372,18 @@ int gr_material_cmd(lua_State* L)
   get_tuple(L, 2, ks, 3);
 
   double shininess = luaL_checknumber(L, 3);
-  
+
+  if (lua_gettop(L) > 4) {
+    
+    const char* name = luaL_checkstring(L, 4);
+    if (strcmp(name, "specular") == 0) {
+      type = MaterialType::SPECULAR;
+    }
+  }
+
   data->material = new PhongMaterial(glm::vec3(kd[0], kd[1], kd[2]),
                                      glm::vec3(ks[0], ks[1], ks[2]),
-                                     shininess);
+                                     shininess, type);
 
   luaL_newmetatable(L, "gr.material");
   lua_setmetatable(L, -2);

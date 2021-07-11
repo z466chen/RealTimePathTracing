@@ -19,6 +19,9 @@ public:
 	// Construct an empty image.
 	Image();
 
+	// Construct image from a file, resize 
+	Image(uint width, uint height,const char *filename);
+
 	// Construct a black image at the given width/height.
 	Image(uint width, uint height);
 
