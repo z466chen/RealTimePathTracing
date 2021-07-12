@@ -13,36 +13,16 @@ A4_Scene::A4_Scene(SceneNode *root,
 		glm::vec3 &ambient, std::list<Light *> &lights): root{root}, 
 		camera{(float)fov, eye,glm::normalize(view - eye),  glm::normalize(up)},
 		ambient{ambient}, lights{lights}, initialized{true} {
+	bvh = std::make_unique<BVH>(root);
 }
 
 Intersection A4_Scene::traverse(const Ray &ray) const {
-	std::queue<SceneNode *> q;
-	q.emplace(root);
-	Intersection result{};
-	while(!q.empty()) {
-		auto node = q.front();
-		q.pop();
-		Intersection payload = node->intersect(ray);
-		if (payload.intersects && 
-			(!result.intersects || 
-			payload.t < result.t)) {
-
-			result = payload;
-			// std::cout << "traverse: " << payload.intersects << std::endl;
-		}
-		for (auto children: node->children) {
-			q.emplace(children);
-		}
-		
-		
-	}
-	return result;
+	return bvh->intersect(ray);
 }
 
 glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth, const glm::vec3 &background_color) const {
 	if (depth > maxDepth) return background_color; 
 	Intersection payload = traverse(ray);
-	// std::cout << payload.intersects << std::endl;
 	
 	if (payload.intersects) {
 		const PhongMaterial *material = 

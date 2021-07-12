@@ -27,7 +27,6 @@ SceneNode::SceneNode(const std::string& name)
 	invtrans(mat4()),
 	m_nodeId(nodeInstanceCount++)
 {
-
 }
 
 //---------------------------------------------------------------------------------------

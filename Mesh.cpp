@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <fstream>
-#include <climits>
 
 #include <glm/ext.hpp>
 
@@ -17,6 +16,9 @@ Mesh::Mesh( const std::string& fname )
 	double vx, vy, vz;
 	size_t s1, s2, s3;
 
+	std::vector<Object *> triangles;
+
+
 	std::ifstream ifs( fname.c_str() );
 	while( ifs >> code ) {
 		if( code == "v" ) {
@@ -24,9 +26,18 @@ Mesh::Mesh( const std::string& fname )
 			m_vertices.push_back( glm::vec3( vx, vy, vz ) );
 		} else if( code == "f" ) {
 			ifs >> s1 >> s2 >> s3;
-			m_faces.push_back( Triangle( s1 - 1, s2 - 1, s3 - 1 ) );
+			m_faces.push_back( Triangle( &(*(m_vertices.begin() + (s1 - 1))), 
+				&(*(m_vertices.begin() + (s2 - 1))), 
+				&(*(m_vertices.begin() + (s3 - 1)))));
 		}
 	}
+
+	for (auto &trig: m_faces) {
+		triangles.emplace_back(&trig);
+	}
+
+	std::cout << triangles.size() << std::endl;
+	bvh = std::make_unique<BVH>(std::move(triangles));
 }
 
 std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
@@ -50,32 +61,73 @@ std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
   return out;
 }
 
-Intersection Mesh::intersect(Ray ray) {
+Intersection Triangle::intersect(const Ray &ray) {
 	Intersection result;
-	result.t = std::numeric_limits<double>::max();
-	for (auto t: m_faces) {
-		glm::vec3 s = ray.origin - m_vertices[t.v1];
-		glm::vec3 e1 = m_vertices[t.v2] - m_vertices[t.v1];
-		glm::vec3 e2 = m_vertices[t.v3] - m_vertices[t.v1];
 
-		double divident = glm::dot(glm::cross(ray.direction, e2), e1);
+	glm::vec3 s = ray.origin - *v1;
+	glm::vec3 e1 = *v2 - *v1;
+	glm::vec3 e2 = *v3 - *v1;
 
-		double t0 = glm::dot(glm::cross(s, e1), e2)/divident;
-		double b1 = glm::dot(glm::cross(ray.direction, e2), s)/divident;
-		double b2 = glm::dot(glm::cross(s, e1), ray.direction)/divident;
+	double divident = glm::dot(glm::cross(ray.direction, e2), e1);
 
-		if (t0 > 0 && t0 < result.t 
-			&& b1 > 0 && b2 > 0 && 1 - b1 - b2 > 0) {
-			// std::cout << "found: " << t0 << std::endl;
-			
-			result.intersects = true;
-			result.t = t0;
-			result.normal = glm::cross(e1,e2);
-			result.obj = this;
-			result.position = result.t * ray.direction + ray.origin;
-		}
+	double t0 = glm::dot(glm::cross(s, e1), e2)/divident;
+	double b1 = glm::dot(glm::cross(ray.direction, e2), s)/divident;
+	double b2 = glm::dot(glm::cross(s, e1), ray.direction)/divident;
+
+	if (t0 > 0 && b1 > 0 && b2 > 0 && 1 - b1 - b2 > 0) {
+		// std::cout << "found: " << t0 << std::endl;
+		
+		result.intersects = true;
+		result.t = t0;
+		result.normal = glm::cross(e1,e2);
+		result.position = result.t * ray.direction + ray.origin;
 	}
 	return result;
+}
+
+AABB Triangle::getAABB() const {
+	AABB result;
+	result.lower_bound = glm::min(*v1, *v2, *v3);
+	result.upper_bound = glm::max(*v1, *v2, *v3);
+	return result;
+}
+
+Intersection Mesh::intersect(const Ray &ray) {
+	auto result = bvh->intersect(ray);
+	if (result.intersects) {
+		result.obj = this;
+	}
+	return result;
+
+	// Intersection result;
+	// result.t = std::numeric_limits<double>::max();
+	// for (auto t: m_faces) {
+	// 	glm::vec3 s = ray.origin - *t.v1;
+	// 	glm::vec3 e1 = *t.v2 - *t.v1;
+	// 	glm::vec3 e2 = *t.v3 - *t.v1;
+
+	// 	double divident = glm::dot(glm::cross(ray.direction, e2), e1);
+
+	// 	double t0 = glm::dot(glm::cross(s, e1), e2)/divident;
+	// 	double b1 = glm::dot(glm::cross(ray.direction, e2), s)/divident;
+	// 	double b2 = glm::dot(glm::cross(s, e1), ray.direction)/divident;
+
+	// 	if (t0 > 0 && t0 < result.t 
+	// 		&& b1 >= 0 && b2 >= 0 && 1 - b1 - b2 >= 0) {
+	// 		// std::cout << "found: " << t0 << std::endl;
+			
+	// 		result.intersects = true;
+	// 		result.t = t0;
+	// 		result.normal = glm::cross(e1,e2);
+	// 		result.obj = this;
+	// 		result.position = result.t * ray.direction + ray.origin;
+	// 	}
+	// }
+	return result;
+}
+
+AABB Mesh::getAABB() const {
+	return bvh->getAABB();
 }
 
 Mesh::~Mesh() {}

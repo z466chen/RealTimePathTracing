@@ -3,11 +3,12 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include "Ray.hpp"
+#include "Object.hpp"
 
-class Primitive {
+class Primitive: public Object {
 public:
-  virtual Intersection intersect(Ray ray) { return Intersection(); };
+  virtual Intersection intersect(const Ray &ray) { return Intersection(); };
+  virtual AABB getAABB() const { return AABB(); };
   virtual ~Primitive();
 };
 
@@ -24,11 +25,12 @@ public:
 class NonhierSphere : public Primitive {
 public:
   NonhierSphere(const glm::vec3& pos, double radius)
-    : m_pos(pos), m_radius(radius)
+    :m_pos(pos), m_radius(radius)
   {
   }
 
-  virtual Intersection intersect(Ray ray);
+  virtual Intersection intersect(const Ray &ray);
+  virtual AABB getAABB() const;
   virtual ~NonhierSphere();
 private:
   glm::vec3 m_pos;
@@ -38,11 +40,12 @@ private:
 class NonhierBox : public Primitive {
 public:
   NonhierBox(const glm::vec3& pos, double size)
-    : m_pos(pos), m_size(size)
+    :m_pos(pos), m_size(size)
   {
   }
   
-  virtual Intersection intersect(Ray ray);
+  virtual Intersection intersect(const Ray &ray);
+  virtual AABB getAABB() const;
   virtual ~NonhierBox();
 
 private:

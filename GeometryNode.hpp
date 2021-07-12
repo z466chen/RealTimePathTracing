@@ -16,5 +16,6 @@ public:
 	Material *m_material;
 	Primitive *m_primitive;
 
-	virtual Intersection intersect(Ray ray);
+	virtual Intersection intersect(const Ray &ray);
+	virtual AABB getAABB() const;
 };

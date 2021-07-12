@@ -29,11 +29,15 @@ void GeometryNode::setMaterial( Material *mat )
 	m_material = mat;
 }
 
-Intersection GeometryNode::intersect(Ray ray) {
+Intersection GeometryNode::intersect(const Ray &ray) {
 	Intersection result = m_primitive->intersect(ray);
 	// std::cout << "gnode: " << result.intersects << std::endl;
 	if (result.intersects) {
 		result.material = m_material;
 	}
 	return result;
+}
+
+AABB GeometryNode::getAABB() const {
+	return m_primitive->getAABB();
 }

@@ -28,7 +28,7 @@ NonhierBox::~NonhierBox()
 }
 
 
-Intersection NonhierSphere::intersect(Ray ray) {
+Intersection NonhierSphere::intersect(const Ray &ray) {
     Intersection result = Intersection();
 
     glm::vec3 temp = ray.origin - m_pos;
@@ -56,7 +56,15 @@ Intersection NonhierSphere::intersect(Ray ray) {
     result.obj = this;
 }
 
-Intersection NonhierBox::intersect(Ray ray) {
+AABB NonhierSphere::getAABB() const {
+    AABB result;
+    result.lower_bound = m_pos - glm::vec3(m_radius, m_radius, m_radius);
+    result.upper_bound = m_pos + glm::vec3(m_radius, m_radius, m_radius);
+    return result;
+}
+
+
+Intersection NonhierBox::intersect(const Ray &ray) {
     glm::vec3 lower_bound = m_pos - glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5);
     glm::vec3 upper_bound = m_pos + glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5);
 
@@ -120,3 +128,9 @@ Intersection NonhierBox::intersect(Ray ray) {
     return result;
 }
 
+AABB NonhierBox::getAABB() const {
+    AABB result;
+    result.lower_bound = m_pos - glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5);
+    result.upper_bound = m_pos + glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5); 
+    return result;
+}

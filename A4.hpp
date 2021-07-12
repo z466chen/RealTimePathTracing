@@ -3,6 +3,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <memory>
 
 #include "SceneNode.hpp"
 #include "Light.hpp"
@@ -10,11 +11,13 @@
 #include "Camera.hpp"
 #include "Ray.hpp"
 #include "defines.hpp"
+#include "BVH.hpp"
 
 class A4_Scene {
 
 	bool initialized = false;
 
+	std::unique_ptr<BVH> bvh;
 
 	glm::vec3 __RTCastRay(const Ray &ray, int depth, const glm::vec3 &background_color) const;
 public:

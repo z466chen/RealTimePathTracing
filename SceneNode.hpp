@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Material.hpp"
-#include "Ray.hpp"
+#include "Object.hpp"
 
 #include <glm/glm.hpp>
 
@@ -17,7 +17,7 @@ enum class NodeType {
 	JointNode
 };
 
-class SceneNode {
+class SceneNode: public Object {
 public:
     SceneNode(const std::string & name);
 
@@ -41,7 +41,10 @@ public:
     void scale(const glm::vec3& amount);
     void translate(const glm::vec3& amount);
 
-    virtual Intersection intersect(Ray ray) { return Intersection(); }
+    // return intersection payload of given ray
+    virtual Intersection intersect(const Ray &ray) { return Intersection(); }
+
+    virtual AABB getAABB() const { return AABB(); }
 
 	friend std::ostream & operator << (std::ostream & os, const SceneNode & node);
 
