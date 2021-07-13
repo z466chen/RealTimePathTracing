@@ -21,10 +21,13 @@ Intersection A4_Scene::traverse(const Ray &ray) const {
 }
 
 glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth, const glm::vec3 &background_color) const {
-	if (depth > maxDepth) return background_color; 
+	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
+	if (depth > maxDepth) return glm::min(background_color, white); 
 	Intersection payload = traverse(ray);
 	
+
 	if (payload.intersects) {
+
 		const PhongMaterial *material = 
 			static_cast<PhongMaterial *>(payload.material);
 			
@@ -57,35 +60,36 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth, const glm::vec3 &backg
 					((glm::dot(payload.normal, refractDir) > 0)? payload.normal*EPSILON: 
 					-payload.normal*EPSILON), refractDir);
 
-				glm::vec3 diffuse(0.0f);
+				// glm::vec3 diffuse(0.0f);
 
 
-				for (auto light: lights) {
-					glm::vec3 vectorToLight = light->position - payload.position;
-					double distanceToLight = glm::l2Norm(vectorToLight);
-					vectorToLight = glm::normalize(vectorToLight);
+				// for (auto light: lights) {
+				// 	glm::vec3 vectorToLight = light->position - payload.position;
+				// 	double distanceToLight = glm::l2Norm(vectorToLight);
+				// 	vectorToLight = glm::normalize(vectorToLight);
 
-					glm::vec3 delta;
-					if (glm::dot(payload.normal, vectorToLight) > 0) {
-						delta = payload.normal * EPSILON;
-					} else {
-						delta = -payload.normal * EPSILON;
-					}
 
-					Ray shadowRay = Ray(payload.position + delta, vectorToLight);
+				// 	glm::vec3 delta;
+				// 	if (glm::dot(payload.normal, vectorToLight) > 0) {
+				// 		delta = payload.normal * EPSILON;
+				// 	} else {
+				// 		delta = -payload.normal * EPSILON;
+				// 	}
+
+				// 	Ray shadowRay = Ray(payload.position + delta, vectorToLight);
 					
-					Intersection collision = traverse(shadowRay);
-					// if no collision blocking the shadowRay, we add this light
-					if (!collision.intersects || collision.t > distanceToLight) {
-						// std::cout << "light: " << glm::to_string(light->colour) << std::endl;
-						diffuse += fmax(glm::dot(payload.normal, 
-							vectorToLight),0.0f) * light->colour;
-					}
+				// 	Intersection collision = traverse(shadowRay);
+				// 	// if no collision blocking the shadowRay, we add this light
+				// 	if (!collision.intersects || collision.t > distanceToLight) {
+				// 		// std::cout << "light: " << glm::to_string(light->colour) << std::endl;
+				// 		diffuse += fmax(glm::dot(payload.normal, 
+				// 			vectorToLight),0.0f) * light->colour;
+				// 	}
 
-				}
+				// }
 
-				return  ambient * material->m_kd + material->m_ks * (kr * castRay(reflectionRay,depth+1, background_color)+ 
-					(1 - kr) * castRay(refractionRay,depth+1, background_color));
+				return glm::min(ambient + material->m_ks * (kr * castRay(reflectionRay,depth+1, background_color)+ 
+					(1 - kr) * castRay(refractionRay,depth+1, background_color)), white);
 				break;
 			}
 			case MaterialType::DIFFUSE: {
@@ -118,18 +122,18 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth, const glm::vec3 &backg
 						specular += pow(fmax(glm::dot(payload.normal, h), 0.0f), 
 							material->m_shininess) * light->colour;
 					}
-
+					
 				}
 
 				// std::cout << "ambient: " << glm::to_string(ambient) << 
 				// 		" diffuse: " << glm::to_string(diffuse) << 
 				// 		" specular: " << glm::to_string(specular) << std::endl;
-				return  ambient * material->m_kd + diffuse * material->m_kd + specular * material->m_ks;
+				return glm::min(ambient + diffuse * material->m_kd + specular * material->m_ks, white);
 				break;
 			}
 		}
 	}
-	return background_color;
+	return glm::min(background_color, white);
 }
 
 glm::vec3 A4_Scene::castRay(const Ray & ray, int depth, const glm::vec3 &background_color) const {

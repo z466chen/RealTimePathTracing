@@ -7,6 +7,7 @@
 
 // #include "cs488-framework/ObjFileDecoder.hpp"
 #include "Mesh.hpp"
+#include "defines.hpp"
 
 Mesh::Mesh( const std::string& fname )
 	: m_vertices()
@@ -69,17 +70,22 @@ Intersection Triangle::intersect(const Ray &ray) {
 	glm::vec3 e2 = *v3 - *v1;
 
 	double divident = glm::dot(glm::cross(ray.direction, e2), e1);
+	if (divident < EPSILON) {
+		return result;
+	}
 
-	double t0 = glm::dot(glm::cross(s, e1), e2)/divident;
+	auto qvec = glm::cross(s, e1);
+
+	double t0 = glm::dot(qvec, e2)/divident;
 	double b1 = glm::dot(glm::cross(ray.direction, e2), s)/divident;
-	double b2 = glm::dot(glm::cross(s, e1), ray.direction)/divident;
+	double b2 = glm::dot(qvec, ray.direction)/divident;
 
-	if (t0 > 0 && b1 > 0 && b2 > 0 && 1 - b1 - b2 > 0) {
+	if (t0 > 0 && b1 >= 0 && b2 >= 0 && 1 - b1 - b2 >= 0) {
 		// std::cout << "found: " << t0 << std::endl;
 		
 		result.intersects = true;
 		result.t = t0;
-		result.normal = glm::cross(e1,e2);
+		result.normal = glm::normalize(glm::cross(e1,e2));
 		result.position = result.t * ray.direction + ray.origin;
 	}
 	return result;
@@ -97,32 +103,6 @@ Intersection Mesh::intersect(const Ray &ray) {
 	if (result.intersects) {
 		result.obj = this;
 	}
-	return result;
-
-	// Intersection result;
-	// result.t = std::numeric_limits<double>::max();
-	// for (auto t: m_faces) {
-	// 	glm::vec3 s = ray.origin - *t.v1;
-	// 	glm::vec3 e1 = *t.v2 - *t.v1;
-	// 	glm::vec3 e2 = *t.v3 - *t.v1;
-
-	// 	double divident = glm::dot(glm::cross(ray.direction, e2), e1);
-
-	// 	double t0 = glm::dot(glm::cross(s, e1), e2)/divident;
-	// 	double b1 = glm::dot(glm::cross(ray.direction, e2), s)/divident;
-	// 	double b2 = glm::dot(glm::cross(s, e1), ray.direction)/divident;
-
-	// 	if (t0 > 0 && t0 < result.t 
-	// 		&& b1 >= 0 && b2 >= 0 && 1 - b1 - b2 >= 0) {
-	// 		// std::cout << "found: " << t0 << std::endl;
-			
-	// 		result.intersects = true;
-	// 		result.t = t0;
-	// 		result.normal = glm::cross(e1,e2);
-	// 		result.obj = this;
-	// 		result.position = result.t * ray.direction + ray.origin;
-	// 	}
-	// }
 	return result;
 }
 

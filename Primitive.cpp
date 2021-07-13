@@ -3,8 +3,9 @@
 #include "Primitive.hpp"
 #include "polyroots.hpp"
 #include <utility>
-#include <map>
+#include <vector>
 #include <algorithm>
+#include <glm/ext.hpp>
 #include "defines.hpp"
 
 Primitive::~Primitive()
@@ -54,6 +55,7 @@ Intersection NonhierSphere::intersect(const Ray &ray) {
     result.position = ray.origin + (float)t*ray.direction;
     result.normal = glm::normalize(result.position - m_pos);
     result.obj = this;
+    return result;
 }
 
 AABB NonhierSphere::getAABB() const {
@@ -77,41 +79,53 @@ Intersection NonhierBox::intersect(const Ray &ray) {
         glm::vec3(-1, 0, 0),
         glm::vec3(0, -1, 0),
         glm::vec3(0, 0, -1),
+
         glm::vec3(1, 0, 0),
         glm::vec3(0, 1, 0),
         glm::vec3(0, 0, 1)
     };
 
-    std::map<float,int> lowert_map = {
+    std::vector<std::pair<float,int>> lowert_arr = {
         {lower_ts.x, 0},
         {lower_ts.y, 1},
         {lower_ts.z, 2},
     };
 
-    std::map<float,int> uppert_map = {
+    std::vector<std::pair<float,int>> uppert_arr = {
         {upper_ts.x, 3},
         {upper_ts.y, 4},
         {upper_ts.z, 5},
     };
 
     if (ray.direction.x < 0) {
-        std::swap(lowert_map[0], uppert_map[0]);
+        auto temp = lowert_arr[0];
+        lowert_arr[0] = uppert_arr[0];
+        uppert_arr[0] = temp;
+        // std::swap(lowert_arr[0], uppert_arr[0]);
     }
 
     if (ray.direction.y < 0) {
-        std::swap(lowert_map[1], uppert_map[1]);
+        auto temp = lowert_arr[1];
+        lowert_arr[1] = uppert_arr[1];
+        uppert_arr[1] = temp;
+        // std::swap(lowert_arr[1], uppert_arr[1]);
     }
 
     if (ray.direction.z < 0) {
-        std::swap(lowert_map[2], uppert_map[2]);
+        auto temp = lowert_arr[2];
+        lowert_arr[2] = uppert_arr[2];
+        uppert_arr[2] = temp;
+        // std::swap(lowert_arr[2], uppert_arr[2]);
     }
 
-    auto lowert = *std::max_element(lowert_map.begin(), lowert_map.end());
-    auto uppert = *std::min_element(uppert_map.begin(), uppert_map.end());
+    auto lowert = *std::max_element(lowert_arr.begin(), lowert_arr.end(), 
+        [](std::pair<float, int> &a, std::pair<float, int> &b){ return a.first < b.first; });
+    auto uppert = *std::min_element(uppert_arr.begin(), uppert_arr.end(), 
+        [](std::pair<float, int> &a, std::pair<float, int> &b){ return a.first < b.first; });
 
     Intersection result = Intersection();
 
-    if (uppert.first > 0 && lowert.first < uppert.first) {
+    if (uppert.first > 0 && lowert.first <= uppert.first) {
         if (lowert.first > 0) {
             result.t = lowert.first;
             result.normal = normals[lowert.second];
@@ -119,12 +133,13 @@ Intersection NonhierBox::intersect(const Ray &ray) {
             result.t = uppert.first;
             result.normal = normals[uppert.second];
         }
-
+        
         result.intersects = true;
         result.position = ray.origin + (float)result.t*ray.direction;
         result.obj = this;
-    }
 
+    }
+    
     return result;
 }
 
