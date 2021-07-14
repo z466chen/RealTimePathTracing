@@ -5,7 +5,9 @@
 
 class Object {
 public:
+    glm::mat4 t_matrix = glm::mat4(1.0f);
+    glm::mat4 inv_t_matrix = glm::mat4(1.0f);
     virtual ~Object() {};
-    virtual Intersection intersect(const Ray &ray) = 0;
+    virtual Intersection intersect(const Ray &ray) const = 0;
     virtual AABB getAABB() const = 0;
 };

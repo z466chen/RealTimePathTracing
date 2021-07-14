@@ -7,19 +7,9 @@
 
 class Primitive: public Object {
 public:
-  virtual Intersection intersect(const Ray &ray) { return Intersection(); };
+  virtual Intersection intersect(const Ray &ray) const { return Intersection(); };
   virtual AABB getAABB() const { return AABB(); };
   virtual ~Primitive();
-};
-
-class Sphere : public Primitive {
-public:
-  virtual ~Sphere();
-};
-
-class Cube : public Primitive {
-public:
-  virtual ~Cube();
 };
 
 class NonhierSphere : public Primitive {
@@ -29,7 +19,7 @@ public:
   {
   }
 
-  virtual Intersection intersect(const Ray &ray);
+  virtual Intersection intersect(const Ray &ray) const;
   virtual AABB getAABB() const;
   virtual ~NonhierSphere();
 private:
@@ -44,11 +34,27 @@ public:
   {
   }
   
-  virtual Intersection intersect(const Ray &ray);
+  virtual Intersection intersect(const Ray &ray) const;
   virtual AABB getAABB() const;
   virtual ~NonhierBox();
 
 private:
   glm::vec3 m_pos;
   double m_size;
+};
+
+class Sphere : public Primitive {
+  static const NonhierSphere content;
+public:
+  virtual Intersection intersect(const Ray &ray) const;
+  virtual AABB getAABB() const;
+  virtual ~Sphere();
+};
+
+class Cube : public Primitive {
+  static const NonhierBox content;
+public:
+  virtual Intersection intersect(const Ray &ray) const;
+  virtual AABB getAABB() const;
+  virtual ~Cube();
 };

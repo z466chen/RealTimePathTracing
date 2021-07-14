@@ -18,8 +18,8 @@ public:
 
 class Intersection {
 public:
-    Primitive *obj = nullptr;
-    Material * material = nullptr;
+    const Primitive *obj = nullptr;
+    const Material * material = nullptr;
     glm::vec3 normal;
     glm::vec3 position;
     double t = 0.0;

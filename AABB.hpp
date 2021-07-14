@@ -11,4 +11,5 @@ public:
     friend AABB operator+(const AABB &lhs,const AABB &rhs);
 
     bool isIntersect(const Ray & ray) const;
+    AABB transform(const glm::mat4 &trans) const;
 };

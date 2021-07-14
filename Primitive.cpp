@@ -8,6 +8,11 @@
 #include <glm/ext.hpp>
 #include "defines.hpp"
 
+
+const NonhierSphere Sphere::content = NonhierSphere(glm::vec3(0,0,0), 1.0f);
+const NonhierBox Cube::content = NonhierBox(glm::vec3(0,0,0), 1.0f);
+
+
 Primitive::~Primitive()
 {
 }
@@ -29,7 +34,8 @@ NonhierBox::~NonhierBox()
 }
 
 
-Intersection NonhierSphere::intersect(const Ray &ray) {
+
+Intersection NonhierSphere::intersect(const Ray &ray) const {
     Intersection result = Intersection();
 
     glm::vec3 temp = ray.origin - m_pos;
@@ -66,7 +72,7 @@ AABB NonhierSphere::getAABB() const {
 }
 
 
-Intersection NonhierBox::intersect(const Ray &ray) {
+Intersection NonhierBox::intersect(const Ray &ray) const {
     glm::vec3 lower_bound = m_pos - glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5);
     glm::vec3 upper_bound = m_pos + glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5);
 
@@ -148,4 +154,25 @@ AABB NonhierBox::getAABB() const {
     result.lower_bound = m_pos - glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5);
     result.upper_bound = m_pos + glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5); 
     return result;
+}
+
+
+Intersection Sphere::intersect(const Ray &ray) const {
+    Intersection result = content.intersect(ray);
+    result.obj = this;
+    return result;
+}
+
+AABB Sphere::getAABB() const {
+    return content.getAABB();
+} 
+
+Intersection Cube::intersect(const Ray &ray) const {
+    Intersection result = content.intersect(ray);
+    result.obj = this;
+    return result;
+}
+
+AABB Cube::getAABB() const {
+    return content.getAABB();
 }

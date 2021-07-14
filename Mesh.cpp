@@ -8,6 +8,7 @@
 // #include "cs488-framework/ObjFileDecoder.hpp"
 #include "Mesh.hpp"
 #include "defines.hpp"
+#include "general.hpp"
 
 Mesh::Mesh( const std::string& fname )
 	: m_vertices()
@@ -36,8 +37,6 @@ Mesh::Mesh( const std::string& fname )
 	for (auto &trig: m_faces) {
 		triangles.emplace_back(&trig);
 	}
-
-	std::cout << triangles.size() << std::endl;
 	bvh = std::make_unique<BVH>(std::move(triangles));
 }
 
@@ -62,7 +61,7 @@ std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
   return out;
 }
 
-Intersection Triangle::intersect(const Ray &ray) {
+Intersection Triangle::intersect(const Ray &ray) const {
 	Intersection result;
 
 	glm::vec3 s = ray.origin - *v1;
@@ -93,12 +92,13 @@ Intersection Triangle::intersect(const Ray &ray) {
 
 AABB Triangle::getAABB() const {
 	AABB result;
-	result.lower_bound = glm::min(*v1, *v2, *v3);
-	result.upper_bound = glm::max(*v1, *v2, *v3);
+	result.lower_bound = vec_min(*v1, vec_min(*v2, *v3));
+	result.upper_bound = vec_max(*v1, vec_max(*v2, *v3));
 	return result;
 }
 
-Intersection Mesh::intersect(const Ray &ray) {
+
+Intersection Mesh::intersect(const Ray &ray) const {
 	auto result = bvh->intersect(ray);
 	if (result.intersects) {
 		result.obj = this;

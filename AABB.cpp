@@ -1,9 +1,11 @@
 #include "AABB.hpp"
+#include "general.hpp"
+#include <glm/ext.hpp>
 
 AABB operator+(const AABB &lhs,const AABB &rhs) {
     AABB result;
-    result.lower_bound = glm::min(lhs.lower_bound, rhs.lower_bound);
-    result.upper_bound = glm::max(lhs.upper_bound, rhs.upper_bound);
+    result.lower_bound = vec_min(lhs.lower_bound, rhs.lower_bound);
+    result.upper_bound = vec_max(lhs.upper_bound, rhs.upper_bound);
 
     return result;
 }
@@ -30,4 +32,20 @@ bool AABB::isIntersect(const Ray &ray) const {
     auto uppert = fmin(upper_ts.x, fmin(upper_ts.y, upper_ts.z));;
 
     return uppert > 0 && uppert >= lowert;
+}
+
+
+AABB AABB::transform(const glm::mat4 &trans) const {
+    AABB result;
+
+    glm::vec3 o = ptrans(trans, lower_bound);
+    glm::vec3 x = vtrans(trans, glm::vec3(upper_bound.x - lower_bound.x,0.0f,0.0f));
+    glm::vec3 y = vtrans(trans, glm::vec3(0.0f,upper_bound.y - lower_bound.y,0.0f));
+    glm::vec3 z = vtrans(trans, glm::vec3(0.0f,0.0f,upper_bound.z - lower_bound.z));
+    
+    glm::vec3 s = o+x+y+z;
+    glm::vec3 zero = glm::vec3(0.0f);
+    result.lower_bound = o + vec_min(x,zero) + vec_min(y,zero)+ vec_min(z, zero);
+    result.upper_bound = s - result.lower_bound + o;
+    return result;
 }

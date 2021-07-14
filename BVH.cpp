@@ -3,6 +3,7 @@
 #include <queue>
 #include <climits>
 #include <glm/ext.hpp>
+#include "general.hpp"
 
 class MediumSplitter: public Splitter {
 public:
@@ -14,8 +15,8 @@ public:
 
         auto median_index = source.begin() + source.size()/2;
         std::nth_element(source.begin(), median_index, source.end(), [axis](Object * a, Object *b){
-            AABB a_bound = a->getAABB();
-            AABB b_bound = b->getAABB();
+            AABB a_bound = a->getAABB().transform(a->t_matrix);
+            AABB b_bound = b->getAABB().transform(b->t_matrix);
 
             double a_axis_mean = (a_bound.lower_bound[axis] + a_bound.upper_bound[axis]) * 0.5;
             double b_axis_mean = (b_bound.lower_bound[axis] + b_bound.upper_bound[axis]) * 0.5;
@@ -41,10 +42,10 @@ BVH::BVHNode * BVH::__recursiveBuild(std::vector<Object *> &&objs, int axis) con
     if (objs.empty()) return nullptr;
     if (objs.size() <= LeafNodePrimitiveLimit) {
         BVHNode *leafNode = new BVHNode();
-        leafNode->bbox = objs[0]->getAABB();
+        leafNode->bbox = objs[0]->getAABB().transform(objs[0]->t_matrix);
         leafNode->objs.emplace_back(objs[0]);
         for (int i = 1; i < objs.size(); ++i) {
-            leafNode->bbox = leafNode->bbox + objs[i]->getAABB();
+            leafNode->bbox = leafNode->bbox + objs[i]->getAABB().transform(objs[i]->t_matrix);
             leafNode->objs.emplace_back(objs[i]);
         }
         leafNode->left = nullptr;
@@ -68,35 +69,40 @@ BVH::BVHNode * BVH::__recursiveBuild(std::vector<Object *> &&objs, int axis) con
 }
 
 BVH::BVH(std::vector<Object *> &&objs) {
-    difnad = 2;
     BVHNode *root_raw = __recursiveBuild(std::move(objs), 0);
     this->root = std::unique_ptr<BVHNode>(root_raw);
 }
 
-BVH::BVH(SceneNode *root) {
-    // get all objs from root screen node
-
-    std::queue<SceneNode *> q;
-    q.emplace(root);
+std::vector<Object *> BVH::__constructObjectList(SceneNode *root) {
+    std::queue<std::pair<SceneNode *, std::pair<glm::mat4, glm::mat4>>> q;
+    q.emplace(root, std::make_pair(glm::mat4(1.0f), glm::mat4(1.0f)));
 
     std::vector<Object *> objs;
     while(!q.empty()) {
-        auto node = q.front();
+        auto node_and_matrix = q.front();
+        auto node = node_and_matrix.first;
+        auto current_trans_matrix = node_and_matrix.second.first*node->trans;
+        auto current_inv_trans_matrix = node->invtrans*node_and_matrix.second.second;
         q.pop();
+
         if (node->m_nodeType == NodeType::GeometryNode) {
+            // std::cout << node->m_name << " " <<  glm::to_string(current_trans_matrix) << std::endl;
+            // std::cout << node->m_name << " " <<  glm::to_string(current_inv_trans_matrix) << std::endl <<std::endl;
+            node->t_matrix = current_trans_matrix;
+            node->inv_t_matrix = current_inv_trans_matrix;
             objs.emplace_back(node);
         }
 
         for (auto child: node->children) {
-            q.emplace(child);
+            q.emplace(child, std::make_pair(current_trans_matrix, current_inv_trans_matrix));
         }
     }
-
-    BVHNode *root_raw = __recursiveBuild(std::move(objs), 0);
-    this->root = std::unique_ptr<BVHNode>(root_raw);
+    return objs;
 }
 
-Intersection BVH::intersect(const Ray &ray) {
+BVH::BVH(SceneNode *root): BVH(__constructObjectList(root)) {}
+
+Intersection BVH::intersect(const Ray &ray) const {
     std::queue<BVHNode *> queue;
     queue.emplace(root.get());
 
@@ -110,9 +116,16 @@ Intersection BVH::intersect(const Ray &ray) {
         if (!node || !node->bbox.isIntersect(ray)) continue;
 
         for (auto obj: node->objs) {
-            Intersection temp = obj->intersect(ray);
+            Ray transformed_ray;
+            transformed_ray.origin = ptrans(obj->inv_t_matrix, ray.origin);
+            transformed_ray.direction = vtrans(obj->inv_t_matrix, ray.direction);
+
+            Intersection temp = obj->intersect(transformed_ray);
+
             if (temp.intersects && temp.t < result.t) {
                 result = temp;
+                result.position = temp.t * ray.direction + ray.origin;
+                result.normal = vtrans(glm::transpose(obj->inv_t_matrix), temp.normal);
             }
         }
 

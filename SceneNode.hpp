@@ -42,7 +42,7 @@ public:
     void translate(const glm::vec3& amount);
 
     // return intersection payload of given ray
-    virtual Intersection intersect(const Ray &ray) { return Intersection(); }
+    virtual Intersection intersect(const Ray &ray) const { return Intersection(); }
 
     virtual AABB getAABB() const { return AABB(); }
 

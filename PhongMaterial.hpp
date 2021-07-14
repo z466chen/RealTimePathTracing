@@ -14,7 +14,7 @@ public:
   glm::vec3 m_kd;
   glm::vec3 m_ks;
 
-  double ior = 1.5;
+  double ior = 2.0;
 
   double m_shininess;
 private:

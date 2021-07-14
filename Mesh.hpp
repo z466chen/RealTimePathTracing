@@ -34,7 +34,7 @@ public:
 	{}
 
 	virtual ~Triangle() {};
-	virtual Intersection intersect(const Ray &ray);
+	virtual Intersection intersect(const Ray &ray) const;
 	virtual AABB getAABB() const;
 };
 
@@ -42,7 +42,7 @@ public:
 class Mesh : public Primitive {
 public:
   Mesh( const std::string& fname );
-  virtual Intersection intersect(const Ray &ray);
+  virtual Intersection intersect(const Ray &ray) const;
   virtual AABB getAABB() const;
   virtual ~Mesh();
 private:
