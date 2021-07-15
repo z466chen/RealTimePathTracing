@@ -12,6 +12,7 @@
 #include "Ray.hpp"
 #include "defines.hpp"
 #include "BVH.hpp"
+#include "Sampler.hpp"
 
 class A4_Scene {
 
@@ -45,8 +46,54 @@ public:
 class A4_Canvas {
 public:
 	static const char * background;
-	Image background_img;
+
+	#ifdef ADAPTIVE
+		const float adaptive_thresh = 1;
+	#endif
+
+	const int sample_size = 2;
+	SamplerType s_type = SamplerType::SINGLE;
+	std::unique_ptr<Sampler> sampler = std::make_unique<SingleSampler>();
 	Image image;
-	A4_Canvas(uint width, uint height): image{width, height}, background_img{width, height, background} {};
+	
+
+	A4_Canvas(uint width, uint height): image{width, height, background} {};
+	A4_Canvas(uint width, uint height, SamplerType s_type): A4_Canvas{width, height}{
+		this->s_type = s_type;
+		switch (s_type) {
+
+		case SamplerType::SINGLE :
+			sampler = std::make_unique<SingleSampler>();
+			break;
+
+		case SamplerType::SS_GRID :
+			sampler = std::make_unique<SuperSamplerGrid>(sample_size);
+			break;
+		
+		case SamplerType::SS_JITTER :
+			sampler = std::make_unique<SuperSamplerJitter>(sample_size);
+			break;
+		
+		case SamplerType::SS_QUINCUNX :
+			sampler = std::make_unique<SuperSamplerQuincunx>();
+			break;
+		
+		case SamplerType::SS_RANDOM :
+			sampler = std::make_unique<SuperSamplerRandom>(sample_size);
+			break;
+		
+		case SamplerType::SS_RG :
+			sampler = std::make_unique<SuperSamplerRotatedGrid>(sample_size);
+			break;
+		
+		case SamplerType::SS_QMC :
+			sampler = std::make_unique<SuperSamplerQMC>(sample_size);
+			break;
+
+		default:
+			break;
+		}
+	}
+	
 	void render(const A4_Scene & scene);
 };

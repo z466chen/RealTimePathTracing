@@ -1,6 +1,22 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <random>
+#include <memory>
+
+inline std::unique_ptr<std::random_device> dev = 
+    std::make_unique<std::random_device>();
+
+inline std::mt19937 rng = std::mt19937((*dev)());
+
+inline float get_random_float()
+{
+    // std::random_device dev;
+    // std::mt19937 rng(dev());
+    std::uniform_real_distribution<float> dist(0.f, 1.f); // distribution in range [1, 6]
+
+    return dist(rng);
+}
 
 inline glm::vec3 vec_min(glm::vec3 lhs, glm::vec3 rhs) {
     return glm::vec3(fmin(lhs.x, rhs.x), fmin(lhs.y, rhs.y), fmin(lhs.z, rhs.z));

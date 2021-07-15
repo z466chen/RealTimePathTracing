@@ -123,15 +123,15 @@ void A4_Canvas::render(const A4_Scene & scene) {
 	// if main scene is not initalized, the do not render
 	if (!scene.is_initialized()) return;
 
-  	std::cout << "F20: Calling A4_Render(\n" <<
-		  "\t" << *scene.root <<
-          "\t" << "Image(width:" << image.width() << ", height:" << image.height() << ")\n"
-          "\t" << "eye:  " << glm::to_string(scene.camera.getCamEye()) << std::endl <<
-		  "\t" << "view: " << glm::to_string(scene.camera.getCamView()) << std::endl <<
-		  "\t" << "up:   " << glm::to_string(scene.camera.getCamUp()) << std::endl <<
-		  "\t" << "fovy: " << scene.camera.getFov() << std::endl <<
-          "\t" << "ambient: " << glm::to_string(scene.ambient) << std::endl <<
-		  "\t" << "lights{" << std::endl;
+  	// std::cout << "F20: Calling A4_Render(\n" <<
+	// 	  "\t" << *scene.root <<
+    //       "\t" << "Image(width:" << image.width() << ", height:" << image.height() << ")\n"
+    //       "\t" << "eye:  " << glm::to_string(scene.camera.getCamEye()) << std::endl <<
+	// 	  "\t" << "view: " << glm::to_string(scene.camera.getCamView()) << std::endl <<
+	// 	  "\t" << "up:   " << glm::to_string(scene.camera.getCamUp()) << std::endl <<
+	// 	  "\t" << "fovy: " << scene.camera.getFov() << std::endl <<
+    //       "\t" << "ambient: " << glm::to_string(scene.ambient) << std::endl <<
+	// 	  "\t" << "lights{" << std::endl;
 
 	for(const Light * light : scene.lights) {
 		std::cout << "\t\t" <<  *light << std::endl;
@@ -142,30 +142,133 @@ void A4_Canvas::render(const A4_Scene & scene) {
 	size_t h = image.height();
 	size_t w = image.width();
 
+	float p = 0;
+
 	double w_size = tan(glm::radians(scene.camera.getFov()));
 	double h_ratio = w_size/h;
 	double w_ratio = w_size/w;
-	
-	for (uint y = 0; y < h; ++y) {
-		for (uint x = 0; x < w; ++x) {
+
+	int count = 0;
+	for (uint y = h - 1; y > 0; --y) {
+		for (uint x = w - 1; x > 0; --x) {
+
+			#ifdef ADAPTIVE
+				glm::vec3 backgound_color;
+				if (x > 0 && y > 0) {
+					backgound_color	= glm::vec3(
+						image(x, y, 0),
+						image(x, y, 1),
+						image(x, y, 2)
+					);
+				} else {
+					backgound_color = glm::vec3(0,0,0);
+				}
+				 
+				
+				glm::vec3 dir = glm::vec3(((x + 0.5)- w*0.5f)*h_ratio, (h*0.5f - (y + 0.5))*w_ratio, -1);
+				Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
+				glm::vec3 color = scene.castRay(primaryRay, 0, backgound_color);
+
+				std::vector<std::pair<int, int>> n_deltas;
+				n_deltas = {{0,1}, {1,0}, {1,1}};
+				bool hit = false;
+				for (auto &delta: n_deltas) {
+					int a = x+delta.first;
+					int b = y+delta.second;
+
+					if (a < w && b < h) {
+						glm::vec3 neighbour_backgound_color;
+						if (a > 0 && b > 0) {
+							neighbour_backgound_color	= glm::vec3(
+								image(x, y, 0),
+								image(x, y, 1),
+								image(x, y, 2)
+							);
+						} else {
+							neighbour_backgound_color = glm::vec3(0,0,0);
+						}
+
+						glm::vec3 color{image(a,b,0),image(a,b,1),image(a,b,2)};
+						
+						if (glm::l2Norm(color - neighbour_backgound_color) > 
+							adaptive_thresh) {
+							
+							hit = true;
+						}
+					}
+				}
+
+				image(x, y, 0) = (double)0.0f;
+				image(x, y, 1) = (double)0.0f;
+				image(x, y, 2) = (double)0.0f;
+				if (!hit) {
+					// Red: 
+					image(x, y, 0) += (double)color.r;
+					// Green: 
+					image(x, y, 1) += (double)color.g;
+					// Blue: 
+					image(x, y, 2) += (double)color.b;
+					count += 1;
+					continue;
+				}
+			#else
+				glm::vec3 backgound_color = glm::vec3(
+					image(x, y, 0),
+					image(x, y, 1),
+					image(x, y, 2)
+				);
+
+
+				image(x, y, 0) = (double)0.0f;
+				image(x, y, 1) = (double)0.0f;
+				image(x, y, 2) = (double)0.0f;
+			#endif
+
+			std::vector<std::pair<glm::vec2, float>> selections;
+			sampler->pickInPixel(image, x, y, selections);
+
+			for (auto &s: selections) {
+				glm::vec3 dir = glm::vec3(((x + s.first.x)- w*0.5f)*h_ratio, (h*0.5f - (y + s.first.y))*w_ratio, -1);
+				Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
+				
+				glm::vec3 color = scene.castRay(primaryRay, 0, backgound_color);
+				// Red: 
+				image(x, y, 0) += (double)color.r*s.second;
+				// Green: 
+				image(x, y, 1) += (double)color.g*s.second;
+				// Blue: 
+				image(x, y, 2) += (double)color.b*s.second;
+
+				if (s_type != SamplerType::SS_QUINCUNX || s.second > 0.2 ) continue; 
+				
+				std::vector<std::pair<int, int>> deltas;
+
+				if (s.first.x > 0.5 && s.first.y > 0.5) {
+					deltas = {{0,1}, {1,0}, {1,1}};
+				} else if (s.first.x > 0.5) {
+					deltas = {{1,0}};
+				} else if (s.first.y > 0.5) {
+					deltas = {{0,1}};
+				}
+
+				for (auto &delta: deltas) {
+					int a = x+delta.first;
+					int b = y+delta.second;
+
+					if (a < w && b < h) {
+						// Red: 
+						image(a, b, 0) += (double)color.r*s.second;
+						// Green: 
+						image(a, b, 1) += (double)color.g*s.second;
+						// Blue: 
+						image(a, b, 2) += (double)color.b*s.second;
+					}
+					
+				}
+				
+			}
 			
-			glm::vec3 dir = glm::vec3(((x + 0.5f)- w*0.5f)*h_ratio, (h*0.5f - (y + 0.5f))*w_ratio, -1);
-			
-			Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
-			glm::vec3 backgound_color = glm::vec3(
-				background_img(x, y, 0),
-				background_img(x, y, 1),
-				background_img(x, y, 2)
-			);
-			
-			glm::vec3 color = scene.castRay(primaryRay, 0, backgound_color);
-			// Red: 
-			image(x, y, 0) = (double)color.r;
-			// Green: 
-			image(x, y, 1) = (double)color.g;
-			// Blue: 
-			image(x, y, 2) = (double)color.b;
 		}
 	}
-
+	std::cout << "count:" << count << std::endl;
 }
