@@ -20,7 +20,7 @@ class A4_Scene {
 
 	std::unique_ptr<BVH> bvh;
 
-	glm::vec3 __RTCastRay(const Ray &ray, int depth, const glm::vec3 &background_color) const;
+	glm::vec3 __RTCastRay(const Ray &ray, int depth) const;
 public:
 	SceneNode *root;
 
@@ -40,7 +40,7 @@ public:
 	bool is_initialized() const { return initialized; }
 
 	Intersection traverse(const Ray & ray) const;
-	glm::vec3 castRay(const Ray & ray, int depth, const glm::vec3 &background_color) const;
+	glm::vec3 castRay(const Ray & ray, int depth) const;
 };
 
 class A4_Canvas {

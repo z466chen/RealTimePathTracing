@@ -17,71 +17,109 @@ enum class SamplerType {
 class Sampler {
 public:
     virtual ~Sampler(){};
-    virtual void pickInPixel(const Image &frame,
-        int w, int h, std::vector<std::pair<glm::vec2, float>> &selections) = 0;
+    virtual void init(Image &img) = 0;
+    virtual void pick(glm::vec2 &sample, float &weight, 
+        std::vector<glm::ivec2> &pixels) = 0;
+    virtual size_t getNos() const = 0;
 };
 
 class SingleSampler: public Sampler {
+    size_t count;
+    size_t width;
+    size_t height;
 public:
+    SingleSampler(): count{0} {}
     virtual ~SingleSampler();
-    virtual void pickInPixel(const Image &frame,
-        int w, int h, std::vector<std::pair<glm::vec2, float>> &selections);
+    virtual void init(Image &img) {width = img.width(); height = img.height();}
+    virtual size_t getNos() const { return width*height; };
+    virtual void pick(glm::vec2 &sample, float &weight, 
+        std::vector<glm::ivec2> &pixels);
 };
 
 class SuperSamplerGrid: public Sampler {
-    int size;
+    size_t count;
+    size_t size;
+    size_t width;
+    size_t height;
 public:
-    SuperSamplerGrid(int size);
+    SuperSamplerGrid(size_t size);
     virtual ~SuperSamplerGrid();
-    virtual void pickInPixel(const Image &frame,
-        int w, int h, std::vector<std::pair<glm::vec2, float>> &selections);
+    virtual void init(Image &img) {width = img.width(); height = img.height();}
+    virtual size_t getNos() const { return  width*height*size*size; };
+    virtual void pick(glm::vec2 &sample, float &weight, 
+        std::vector<glm::ivec2> &pixels);
 };
 
 class SuperSamplerRandom: public Sampler {
-    int size;
+    size_t count;
+    size_t size;
+    size_t width;
+    size_t height;
 public:
-    SuperSamplerRandom(int size);
+    SuperSamplerRandom(size_t size);
     virtual ~SuperSamplerRandom();
-    virtual void pickInPixel(const Image &frame,
-        int w, int h, std::vector<std::pair<glm::vec2, float>> &selections);
+    virtual void init(Image &img) {width = img.width(); height = img.height();}
+    virtual size_t getNos() const { return width*height*size*size; };
+    virtual void pick(glm::vec2 &sample, float &weight, 
+        std::vector<glm::ivec2> &pixels);
 };
 
 class SuperSamplerJitter: public Sampler {
-    int size;
+    size_t count;
+    size_t size;
+    size_t width;
+    size_t height;
 public:
-    SuperSamplerJitter(int size);
+    SuperSamplerJitter(size_t size);
     virtual ~SuperSamplerJitter();
-    virtual void pickInPixel(const Image &frame,
-        int w, int h, std::vector<std::pair<glm::vec2, float>> &selections);
+    virtual void init(Image &img) {width = img.width(); height = img.height();}
+    virtual size_t getNos() const { return width*height*size*size; };
+    virtual void pick(glm::vec2 &sample, float &weight, 
+        std::vector<glm::ivec2> &pixels);
 };
 
 
 class SuperSamplerRotatedGrid: public Sampler {
-public:
     static const float rotate_angle;
     static const glm::mat2 rotate_matrix;
-    int size;
 
-    SuperSamplerRotatedGrid(int size);
+    size_t count;
+    size_t size;
+    size_t width;
+    size_t height;
+public:
+    SuperSamplerRotatedGrid(size_t size);
     virtual ~SuperSamplerRotatedGrid();
-    virtual void pickInPixel(const Image &frame,
-        int w, int h, std::vector<std::pair<glm::vec2, float>>&selections);
+    virtual void init(Image &img) {width = img.width(); height = img.height();}
+    virtual size_t getNos() const { return width*height*size*size; };
+    virtual void pick(glm::vec2 &sample, float &weight, 
+        std::vector<glm::ivec2> &pixels);
 };
 
 
 class SuperSamplerQuincunx: public Sampler {
+    size_t count;
+    size_t width;
+    size_t height;
 public:
     SuperSamplerQuincunx();
     virtual ~SuperSamplerQuincunx();
-    virtual void pickInPixel(const Image &frame,
-        int w, int h, std::vector<std::pair<glm::vec2, float>> &selections);
+    virtual void init(Image &img) {width = img.width(); height = img.height();}
+    virtual size_t getNos() const { return width*height + (width+1)*(height+1); };
+    virtual void pick(glm::vec2 &sample, float &weight, 
+        std::vector<glm::ivec2> &pixels);
 };
 
 class SuperSamplerQMC: public Sampler {
-    int size;
+    size_t size;
+    size_t count;
+    size_t width;
+    size_t height;
 public:
-    SuperSamplerQMC(int size);
+    SuperSamplerQMC(size_t size);
     virtual ~SuperSamplerQMC();
-    virtual void pickInPixel(const Image &frame,
-        int w, int h, std::vector<std::pair<glm::vec2, float>> &selections);
+    virtual void init(Image &img) {width = img.width(); height = img.height();}
+    virtual size_t getNos() const { return width*height*size*size; };
+    virtual void pick(glm::vec2 &sample, float &weight, 
+        std::vector<glm::ivec2> &pixels);
 };

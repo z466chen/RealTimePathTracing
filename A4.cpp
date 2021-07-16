@@ -21,9 +21,9 @@ Intersection A4_Scene::traverse(const Ray &ray) const {
 	return bvh->intersect(ray);
 }
 
-glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth, const glm::vec3 &background_color) const {
+glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth) const {
 	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
-	if (depth > maxDepth) return vec_min(background_color, white); 
+	if (depth > maxDepth) return glm::vec3(0.0f); 
 	Intersection payload = traverse(ray);
 	
 
@@ -62,8 +62,8 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth, const glm::vec3 &backg
 					-payload.normal*EPSILON), refractDir);
 
 
-				return vec_min(ambient + material->m_ks * (kr * castRay(reflectionRay,depth+1, background_color)+ 
-					(1 - kr) * castRay(refractionRay,depth+1, background_color)), white);
+				return vec_min(ambient + material->m_ks * (kr * castRay(reflectionRay,depth+1) + 
+					(1 - kr) * castRay(refractionRay,depth+1)), white);
 				break;
 			}
 			case MaterialType::DIFFUSE: {
@@ -107,13 +107,13 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth, const glm::vec3 &backg
 			}
 		}
 	}
-	return vec_min(background_color, white);
+	return glm::vec3(0.0f);
 }
 
-glm::vec3 A4_Scene::castRay(const Ray & ray, int depth, const glm::vec3 &background_color) const {
+glm::vec3 A4_Scene::castRay(const Ray & ray, int depth) const {
 	#ifdef PATH_TRACING
 	#else
-		return __RTCastRay(ray, depth, background_color);
+		return __RTCastRay(ray, depth);
 	#endif
 }
 
@@ -148,127 +148,86 @@ void A4_Canvas::render(const A4_Scene & scene) {
 	double h_ratio = w_size/h;
 	double w_ratio = w_size/w;
 
-	int count = 0;
-	for (uint y = h - 1; y > 0; --y) {
-		for (uint x = w - 1; x > 0; --x) {
+	sampler->init(image);
+	size_t nos = sampler->getNos();
+	for (size_t i = 0; i < nos; ++i) {
+		glm::vec2 sample(0.0f);
+		float weight = 0.0f;
+		std::vector<glm::ivec2> pixels;
+		sampler->pick(sample, weight, pixels);
+		glm::vec3 dir = glm::vec3((sample.x- w*0.5f)*h_ratio, (h*0.5f - sample.y)*w_ratio, -1);
+		Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
+		glm::vec3 color = scene.castRay(primaryRay, 0);
 
-			#ifdef ADAPTIVE
-				glm::vec3 backgound_color;
-				if (x > 0 && y > 0) {
-					backgound_color	= glm::vec3(
-						image(x, y, 0),
-						image(x, y, 1),
-						image(x, y, 2)
-					);
-				} else {
-					backgound_color = glm::vec3(0,0,0);
-				}
-				 
-				
-				glm::vec3 dir = glm::vec3(((x + 0.5)- w*0.5f)*h_ratio, (h*0.5f - (y + 0.5))*w_ratio, -1);
-				Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
-				glm::vec3 color = scene.castRay(primaryRay, 0, backgound_color);
-
-				std::vector<std::pair<int, int>> n_deltas;
-				n_deltas = {{0,1}, {1,0}, {1,1}};
-				bool hit = false;
-				for (auto &delta: n_deltas) {
-					int a = x+delta.first;
-					int b = y+delta.second;
-
-					if (a < w && b < h) {
-						glm::vec3 neighbour_backgound_color;
-						if (a > 0 && b > 0) {
-							neighbour_backgound_color	= glm::vec3(
-								image(x, y, 0),
-								image(x, y, 1),
-								image(x, y, 2)
-							);
-						} else {
-							neighbour_backgound_color = glm::vec3(0,0,0);
-						}
-
-						glm::vec3 color{image(a,b,0),image(a,b,1),image(a,b,2)};
-						
-						if (glm::l2Norm(color - neighbour_backgound_color) > 
-							adaptive_thresh) {
-							
-							hit = true;
-						}
-					}
-				}
-
-				image(x, y, 0) = (double)0.0f;
-				image(x, y, 1) = (double)0.0f;
-				image(x, y, 2) = (double)0.0f;
-				if (!hit) {
-					// Red: 
-					image(x, y, 0) += (double)color.r;
-					// Green: 
-					image(x, y, 1) += (double)color.g;
-					// Blue: 
-					image(x, y, 2) += (double)color.b;
-					count += 1;
-					continue;
-				}
-			#else
-				glm::vec3 backgound_color = glm::vec3(
-					image(x, y, 0),
-					image(x, y, 1),
-					image(x, y, 2)
-				);
-
-
-				image(x, y, 0) = (double)0.0f;
-				image(x, y, 1) = (double)0.0f;
-				image(x, y, 2) = (double)0.0f;
-			#endif
-
-			std::vector<std::pair<glm::vec2, float>> selections;
-			sampler->pickInPixel(image, x, y, selections);
-
-			for (auto &s: selections) {
-				glm::vec3 dir = glm::vec3(((x + s.first.x)- w*0.5f)*h_ratio, (h*0.5f - (y + s.first.y))*w_ratio, -1);
-				Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
-				
-				glm::vec3 color = scene.castRay(primaryRay, 0, backgound_color);
-				// Red: 
-				image(x, y, 0) += (double)color.r*s.second;
-				// Green: 
-				image(x, y, 1) += (double)color.g*s.second;
-				// Blue: 
-				image(x, y, 2) += (double)color.b*s.second;
-
-				if (s_type != SamplerType::SS_QUINCUNX || s.second > 0.2 ) continue; 
-				
-				std::vector<std::pair<int, int>> deltas;
-
-				if (s.first.x > 0.5 && s.first.y > 0.5) {
-					deltas = {{0,1}, {1,0}, {1,1}};
-				} else if (s.first.x > 0.5) {
-					deltas = {{1,0}};
-				} else if (s.first.y > 0.5) {
-					deltas = {{0,1}};
-				}
-
-				for (auto &delta: deltas) {
-					int a = x+delta.first;
-					int b = y+delta.second;
-
-					if (a < w && b < h) {
-						// Red: 
-						image(a, b, 0) += (double)color.r*s.second;
-						// Green: 
-						image(a, b, 1) += (double)color.g*s.second;
-						// Blue: 
-						image(a, b, 2) += (double)color.b*s.second;
-					}
-					
-				}
-				
-			}
-			
+		for (auto &p: pixels) {
+			// Red: 
+			image(p.x, p.y, 0) += (double)color.r*weight;
+			// Green: 
+			image(p.x, p.y, 1) += (double)color.g*weight;
+			// Blue: 
+			image(p.x, p.y, 2) += (double)color.b*weight;			
 		}
 	}
-	std::cout << "count:" << count << std::endl;
+
+	// for (uint y = h - 1; y > 0; --y) {
+	// 	for (uint x = w - 1; x > 0; --x) {
+
+	// 			glm::vec3 backgound_color = glm::vec3(
+	// 				image(x, y, 0),
+	// 				image(x, y, 1),
+	// 				image(x, y, 2)
+	// 			);
+
+
+	// 			image(x, y, 0) = (double)0.0f;
+	// 			image(x, y, 1) = (double)0.0f;
+	// 			image(x, y, 2) = (double)0.0f;
+	// 		#endif
+
+	// 		std::vector<std::pair<glm::vec2, float>> selections;
+	// 		sampler->pickInPixel(image, x, y, selections);
+
+	// 		for (auto &s: selections) {
+	// 			glm::vec3 dir = glm::vec3(((x + s.first.x)- w*0.5f)*h_ratio, (h*0.5f - (y + s.first.y))*w_ratio, -1);
+	// 			Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
+				
+	// 			glm::vec3 color = scene.castRay(primaryRay, 0, backgound_color);
+	// 			// Red: 
+	// 			image(x, y, 0) += (double)color.r*s.second;
+	// 			// Green: 
+	// 			image(x, y, 1) += (double)color.g*s.second;
+	// 			// Blue: 
+	// 			image(x, y, 2) += (double)color.b*s.second;
+
+	// 			if (s_type != SamplerType::SS_QUINCUNX || s.second > 0.2 ) continue; 
+				
+	// 			std::vector<std::pair<int, int>> deltas;
+
+	// 			if (s.first.x > 0.5 && s.first.y > 0.5) {
+	// 				deltas = {{0,1}, {1,0}, {1,1}};
+	// 			} else if (s.first.x > 0.5) {
+	// 				deltas = {{1,0}};
+	// 			} else if (s.first.y > 0.5) {
+	// 				deltas = {{0,1}};
+	// 			}
+
+	// 			for (auto &delta: deltas) {
+	// 				int a = x+delta.first;
+	// 				int b = y+delta.second;
+
+	// 				if (a < w && b < h) {
+	// 					// Red: 
+	// 					image(a, b, 0) += (double)color.r*s.second;
+	// 					// Green: 
+	// 					image(a, b, 1) += (double)color.g*s.second;
+	// 					// Blue: 
+	// 					image(a, b, 2) += (double)color.b*s.second;
+	// 				}
+					
+	// 			}
+				
+	// 		}
+			
+	// 	}
+	// }
 }
