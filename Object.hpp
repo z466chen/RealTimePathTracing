@@ -1,6 +1,7 @@
 #pragma once
 #include "Ray.hpp"
-#include "AABB.hpp"
+#include "Bound.hpp"
+#include "defines.hpp"
 // This is an interface for all the information required for collision detection
 
 class Object {

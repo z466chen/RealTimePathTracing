@@ -12,4 +12,5 @@ public:
 
     bool isIntersect(const Ray & ray) const;
     AABB transform(const glm::mat4 &trans) const;
+    double sdf(const glm::vec3 &t) const;
 };

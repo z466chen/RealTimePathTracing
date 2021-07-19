@@ -4,6 +4,8 @@
 #include <climits>
 #include <glm/ext.hpp>
 #include "general.hpp"
+#include "Triangle.hpp"
+#include "CSG.hpp"
 
 class MediumSplitter: public Splitter {
 public:
@@ -85,22 +87,54 @@ std::vector<Object *> BVH::__constructObjectList(SceneNode *root) {
         auto current_inv_trans_matrix = node->invtrans*node_and_matrix.second.second;
         q.pop();
 
-        if (node->m_nodeType == NodeType::GeometryNode) {
-            // std::cout << node->m_name << " " <<  glm::to_string(current_trans_matrix) << std::endl;
-            // std::cout << node->m_name << " " <<  glm::to_string(current_inv_trans_matrix) << std::endl <<std::endl;
+        if (node->m_nodeType == NodeType::GeometryNode || 
+            node->m_nodeType == NodeType::CSGNode) {
+
             node->t_matrix = current_trans_matrix;
             node->inv_t_matrix = current_inv_trans_matrix;
             objs.emplace_back(node);
         }
 
-        for (auto child: node->children) {
-            q.emplace(child, std::make_pair(current_trans_matrix, current_inv_trans_matrix));
+        if (node->m_nodeType != NodeType::CSGNode) {
+            for (auto child: node->children) { 
+                q.emplace(child, std::make_pair(current_trans_matrix, current_inv_trans_matrix));
+            }
+        } else {
+            static_cast<CSGNode *>(node)->init();
         }
     }
     return objs;
 }
 
 BVH::BVH(SceneNode *root): BVH(__constructObjectList(root)) {}
+
+double BVH::sdf(const glm::vec3 &t) const {
+    std::queue<BVHNode *> queue;
+    queue.emplace(root.get());
+
+    double result = std::numeric_limits<double>::max();
+
+    while(!queue.empty()) {
+        auto node = queue.front();
+        queue.pop();
+
+        if (!node) continue;
+        double boxSdf = node->bbox.sdf(t);
+        if (boxSdf > 0) {
+            result = fmin(result,boxSdf);
+            continue;
+        }
+
+        for (auto obj: node->objs) {
+            Triangle *triangle = static_cast<Triangle *>(obj);
+            result = fmin(result, triangle->sdf(t));
+        }
+
+        queue.emplace(node->left.get());
+        queue.emplace(node->right.get());
+    }
+    return result;    
+}
 
 Intersection BVH::intersect(const Ray &ray) const {
     std::queue<BVHNode *> queue;

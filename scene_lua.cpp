@@ -53,6 +53,7 @@
 #include "Light.hpp"
 #include "Mesh.hpp"
 #include "GeometryNode.hpp"
+#include "CSG.hpp"
 #include "JointNode.hpp"
 #include "Primitive.hpp"
 #include "Material.hpp"
@@ -239,6 +240,36 @@ int gr_nh_box_cmd(lua_State* L)
   double size = luaL_checknumber(L, 3);
 
   data->node = new GeometryNode(name, new NonhierBox(pos, size));
+
+  luaL_getmetatable(L, "gr.node");
+  lua_setmetatable(L, -2);
+
+  return 1;
+}
+
+// Create a csg node
+extern "C"
+int gr_csg_cmd(lua_State* L)
+{
+  GRLUA_DEBUG_CALL;
+  
+  gr_node_ud* data = (gr_node_ud*)lua_newuserdata(L, sizeof(gr_node_ud));
+  data->node = 0;
+
+  const char* name = luaL_checkstring(L, 1);
+  const char* type_name = luaL_checkstring(L, 2);
+  CSGNodeType type;
+  if (strcmp(type_name, "union") == 0) {
+    type = CSGNodeType::UNION;
+  } else if (strcmp(type_name, "intersection") == 0) {
+    type = CSGNodeType::INTERSECTION;
+  } else if (strcmp(type_name, "difference") == 0) {
+    type = CSGNodeType::DIFFERENCE;
+  } else if (strcmp(type_name, "smooth") == 0) {
+    type = CSGNodeType::SMOOTH_UNION;
+  }
+
+  data->node = new CSGNode(name, type);
 
   luaL_getmetatable(L, "gr.node");
   lua_setmetatable(L, -2);
@@ -683,6 +714,8 @@ static const luaL_Reg grlib_functions[] = {
   {"mesh", gr_mesh_cmd},
   {"light", gr_light_cmd},
   {"render", gr_render_cmd},
+  // Newly added for CSG nodes
+  {"csg", gr_csg_cmd},
   {0, 0}
 };
 

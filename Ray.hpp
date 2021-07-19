@@ -24,6 +24,7 @@ public:
     glm::vec3 position;
     double t = 0.0;
     bool intersects = false;
+    bool isCSG = false;
 
     Intersection() {
         // std::cout << intersects << std::endl;

@@ -1,0 +1,5 @@
+Uses Harmmersley low discrepancy sequence generator for quasi monte-carlo sampling.
+
+https://people.sc.fsu.edu/~jburkardt/cpp_src/hammersley/hammersley.html
+
+CSGNode does not use BVH

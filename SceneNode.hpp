@@ -14,7 +14,8 @@
 enum class NodeType {
 	SceneNode,
 	GeometryNode,
-	JointNode
+	JointNode,
+    CSGNode
 };
 
 class SceneNode: public Object {
@@ -43,7 +44,6 @@ public:
 
     // return intersection payload of given ray
     virtual Intersection intersect(const Ray &ray) const { return Intersection(); }
-
     virtual AABB getAABB() const { return AABB(); }
 
 	friend std::ostream & operator << (std::ostream & os, const SceneNode & node);

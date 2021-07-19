@@ -1,4 +1,4 @@
-#include "AABB.hpp"
+#include "Bound.hpp"
 #include "general.hpp"
 #include <glm/ext.hpp>
 
@@ -48,4 +48,12 @@ AABB AABB::transform(const glm::mat4 &trans) const {
     result.lower_bound = o + vec_min(x,zero) + vec_min(y,zero)+ vec_min(z, zero);
     result.upper_bound = s - result.lower_bound + o;
     return result;
+}
+
+double AABB::sdf(const glm::vec3 &t) const {
+    glm::vec3 center = (lower_bound + upper_bound)*0.5;
+    glm::vec3 size = upper_bound - lower_bound;
+    glm::vec3 q = glm::abs(t - center) - size*0.5;
+    return glm::l2Norm(vec_max(q,glm::vec3(0.0))) + 
+        fmin(fmax(q.x,fmax(q.y,q.z)),0.0);
 }

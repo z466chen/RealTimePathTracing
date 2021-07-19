@@ -11,6 +11,7 @@
 
 #include "Primitive.hpp"
 #include "BVH.hpp"
+#include "Triangle.hpp"
 
 
 // Use this #define to selectively compile your code to render the
@@ -18,31 +19,12 @@
 // to turn it on.
 //#define RENDER_BOUNDING_VOLUMES
 
-class Triangle:public Object
-{
-public:
-	const glm::vec3 * v1;
-	const glm::vec3 * v2;
-	const glm::vec3 * v3;
-
-	Triangle( const glm::vec3 * pv1, 
-		const glm::vec3 * pv2, 
-		const glm::vec3 * pv3 )
-		: v1( pv1 )
-		, v2( pv2 )
-		, v3( pv3 )
-	{}
-
-	virtual ~Triangle() {};
-	virtual Intersection intersect(const Ray &ray) const;
-	virtual AABB getAABB() const;
-};
-
 // A polygonal mesh.
 class Mesh : public Primitive {
 public:
   Mesh( const std::string& fname );
   virtual Intersection intersect(const Ray &ray) const;
+  virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
   virtual ~Mesh();
 private:

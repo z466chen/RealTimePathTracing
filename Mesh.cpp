@@ -61,42 +61,9 @@ std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
   return out;
 }
 
-Intersection Triangle::intersect(const Ray &ray) const {
-	Intersection result;
-
-	glm::vec3 s = ray.origin - *v1;
-	glm::vec3 e1 = *v2 - *v1;
-	glm::vec3 e2 = *v3 - *v1;
-
-	double divident = glm::dot(glm::cross(ray.direction, e2), e1);
-	if (divident < EPSILON) {
-		return result;
-	}
-
-	auto qvec = glm::cross(s, e1);
-
-	double t0 = glm::dot(qvec, e2)/divident;
-	double b1 = glm::dot(glm::cross(ray.direction, e2), s)/divident;
-	double b2 = glm::dot(qvec, ray.direction)/divident;
-
-	if (t0 > 0 && b1 >= 0 && b2 >= 0 && 1 - b1 - b2 >= 0) {
-		// std::cout << "found: " << t0 << std::endl;
-		
-		result.intersects = true;
-		result.t = t0;
-		result.normal = glm::normalize(glm::cross(e1,e2));
-		result.position = result.t * ray.direction + ray.origin;
-	}
-	return result;
-}
-
-AABB Triangle::getAABB() const {
-	AABB result;
-	result.lower_bound = vec_min(*v1, vec_min(*v2, *v3));
-	result.upper_bound = vec_max(*v1, vec_max(*v2, *v3));
-	return result;
-}
-
+double Mesh::sdf(const glm::vec3 &t) const {
+	return bvh->sdf(t);
+} 
 
 Intersection Mesh::intersect(const Ray &ray) const {
 	auto result = bvh->intersect(ray);

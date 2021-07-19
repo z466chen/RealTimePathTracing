@@ -13,6 +13,10 @@ GeometryNode::GeometryNode(
 	m_nodeType = NodeType::GeometryNode;
 }
 
+GeometryNode::~GeometryNode() {
+	delete m_primitive;
+}
+
 void GeometryNode::setMaterial( Material *mat )
 {
 	// Obviously, there's a potential memory leak here.  A good solution

@@ -46,5 +46,8 @@ inline glm::vec3 vtrans(glm::mat4 &&m, glm::vec3 v) {
     return glm::vec3(m * glm::vec4(v, 0.0f));
 }
 
+inline double dot2(glm::vec3 v) {
+    return glm::dot(v,v);
+}
 
 

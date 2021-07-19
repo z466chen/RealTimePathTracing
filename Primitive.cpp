@@ -6,7 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <glm/ext.hpp>
-#include "defines.hpp"
+#include "general.hpp"
 
 
 const NonhierSphere Sphere::content = NonhierSphere(glm::vec3(0,0,0), 1.0f);
@@ -61,6 +61,12 @@ Intersection NonhierSphere::intersect(const Ray &ray) const {
     result.position = ray.origin + (float)t*ray.direction;
     result.normal = glm::normalize(result.position - m_pos);
     result.obj = this;
+    return result;
+}
+
+double NonhierSphere::sdf(const glm::vec3 &t) const {
+    double result = glm::l2Norm(t - m_pos) - m_radius;
+    // std::cout << "Sphere: "<< result << std::endl;
     return result;
 }
 
@@ -149,6 +155,15 @@ Intersection NonhierBox::intersect(const Ray &ray) const {
     return result;
 }
 
+double NonhierBox::sdf(const glm::vec3 &t) const {
+    glm::vec3 q = abs(t - m_pos) - glm::vec3(m_size)*0.5;
+    double result = glm::l2Norm(vec_max(q,glm::vec3(0.0))) + 
+        fmin(fmax(q.x,fmax(q.y,q.z)),0.0);
+    // std::cout << "box:" << result << " " << 
+    //     glm::to_string(t - m_pos) << " "  << glm::l2Norm(vec_max(q,glm::vec3(0.0))) << " "<< fmin(fmax(q.x,fmax(q.y,q.z)),0.0) << std::endl;
+    return result;
+}
+
 AABB NonhierBox::getAABB() const {
     AABB result;
     result.lower_bound = m_pos - glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5);
@@ -156,16 +171,19 @@ AABB NonhierBox::getAABB() const {
     return result;
 }
 
-
 Intersection Sphere::intersect(const Ray &ray) const {
     Intersection result = content.intersect(ray);
     result.obj = this;
     return result;
 }
 
+double Sphere::sdf(const glm::vec3 &t) const {
+    return content.sdf(t);
+}
+
 AABB Sphere::getAABB() const {
     return content.getAABB();
-} 
+}
 
 Intersection Cube::intersect(const Ray &ray) const {
     Intersection result = content.intersect(ray);
@@ -173,6 +191,10 @@ Intersection Cube::intersect(const Ray &ray) const {
     return result;
 }
 
+double Cube::sdf(const glm::vec3 &t) const {
+    return content.sdf(t);
+}
+
 AABB Cube::getAABB() const {
     return content.getAABB();
-}
+} 

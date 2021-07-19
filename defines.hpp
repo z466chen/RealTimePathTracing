@@ -2,7 +2,7 @@
 
 #define EPSILON 0.01
 
-#define ANTI_ALIASING
+// #define ANTI_ALIASING
 #ifdef ANTI_ALIASING
     #define ADAPTIVE
 #endif

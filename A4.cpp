@@ -25,13 +25,11 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth) const {
 	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
 	if (depth > maxDepth) return glm::vec3(0.0f); 
 	Intersection payload = traverse(ray);
-	
 
 	if (payload.intersects) {
-
+		
 		const PhongMaterial *material = 
-			static_cast<const PhongMaterial *>(payload.material);
-			
+			static_cast<const PhongMaterial *>(payload.material); 
 		switch(payload.material->type) {
 			case MaterialType::SPECULAR: {
  				double cos_i = glm::dot(-ray.direction, payload.normal);
@@ -62,8 +60,8 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth) const {
 					-payload.normal*EPSILON), refractDir);
 
 
-				return vec_min(ambient + material->m_ks * (kr * castRay(reflectionRay,depth+1) + 
-					(1 - kr) * castRay(refractionRay,depth+1)), white);
+				return vec_min(ambient * material->m_kd + material->m_ks * (kr * castRay(reflectionRay,depth+1)  
+					 +(1 - kr) * castRay(refractionRay,depth+1)), white);
 				break;
 			}
 			case MaterialType::DIFFUSE: {
@@ -95,6 +93,7 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth) const {
 						glm::vec3 h = glm::normalize(vectorToLight - ray.direction);
 						specular += pow(fmax(glm::dot(payload.normal, h), 0.0f), 
 							material->m_shininess) * light->colour;
+						
 					}
 					
 				}
@@ -155,7 +154,12 @@ void A4_Canvas::render(const A4_Scene & scene) {
 		float weight = 0.0f;
 		std::vector<glm::ivec2> pixels;
 		sampler->pick(sample, weight, pixels);
-		glm::vec3 dir = glm::vec3((sample.x- w*0.5f)*h_ratio, (h*0.5f - sample.y)*w_ratio, -1);
+		glm::vec3 dir = vtrans(glm::transpose(scene.camera.getViewMatrix()), 
+			glm::vec3((sample.x- w*0.5f)*h_ratio, (h*0.5f - sample.y)*w_ratio,-1.0f));
+		// std::cout << glm::to_string(glm::vec3(glm::transpose(scene.camera.getViewMatrix()) * glm::vec4(0.0f, 0.0f,-1, 0.0f))) << std::endl;
+		// std::cout << glm::to_string(vtrans(glm::transpose(scene.camera.getViewMatrix()), glm::vec3(0.0f, 0.0f,-1))) << std::endl << std::endl;
+		// std::cout << glm::to_string(scene.camera.getViewMatrix()) << std::endl;
+		
 		Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
 		glm::vec3 color = scene.castRay(primaryRay, 0);
 
@@ -168,66 +172,4 @@ void A4_Canvas::render(const A4_Scene & scene) {
 			image(p.x, p.y, 2) += (double)color.b*weight;			
 		}
 	}
-
-	// for (uint y = h - 1; y > 0; --y) {
-	// 	for (uint x = w - 1; x > 0; --x) {
-
-	// 			glm::vec3 backgound_color = glm::vec3(
-	// 				image(x, y, 0),
-	// 				image(x, y, 1),
-	// 				image(x, y, 2)
-	// 			);
-
-
-	// 			image(x, y, 0) = (double)0.0f;
-	// 			image(x, y, 1) = (double)0.0f;
-	// 			image(x, y, 2) = (double)0.0f;
-	// 		#endif
-
-	// 		std::vector<std::pair<glm::vec2, float>> selections;
-	// 		sampler->pickInPixel(image, x, y, selections);
-
-	// 		for (auto &s: selections) {
-	// 			glm::vec3 dir = glm::vec3(((x + s.first.x)- w*0.5f)*h_ratio, (h*0.5f - (y + s.first.y))*w_ratio, -1);
-	// 			Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
-				
-	// 			glm::vec3 color = scene.castRay(primaryRay, 0, backgound_color);
-	// 			// Red: 
-	// 			image(x, y, 0) += (double)color.r*s.second;
-	// 			// Green: 
-	// 			image(x, y, 1) += (double)color.g*s.second;
-	// 			// Blue: 
-	// 			image(x, y, 2) += (double)color.b*s.second;
-
-	// 			if (s_type != SamplerType::SS_QUINCUNX || s.second > 0.2 ) continue; 
-				
-	// 			std::vector<std::pair<int, int>> deltas;
-
-	// 			if (s.first.x > 0.5 && s.first.y > 0.5) {
-	// 				deltas = {{0,1}, {1,0}, {1,1}};
-	// 			} else if (s.first.x > 0.5) {
-	// 				deltas = {{1,0}};
-	// 			} else if (s.first.y > 0.5) {
-	// 				deltas = {{0,1}};
-	// 			}
-
-	// 			for (auto &delta: deltas) {
-	// 				int a = x+delta.first;
-	// 				int b = y+delta.second;
-
-	// 				if (a < w && b < h) {
-	// 					// Red: 
-	// 					image(a, b, 0) += (double)color.r*s.second;
-	// 					// Green: 
-	// 					image(a, b, 1) += (double)color.g*s.second;
-	// 					// Blue: 
-	// 					image(a, b, 2) += (double)color.b*s.second;
-	// 				}
-					
-	// 			}
-				
-	// 		}
-			
-	// 	}
-	// }
 }

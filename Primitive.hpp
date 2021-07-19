@@ -4,10 +4,12 @@
 
 #include <glm/glm.hpp>
 #include "Object.hpp"
+#include <climits>
 
 class Primitive: public Object {
 public:
   virtual Intersection intersect(const Ray &ray) const { return Intersection(); };
+  virtual double sdf(const glm::vec3 &t) const { return std::numeric_limits<double>::max();}; 
   virtual AABB getAABB() const { return AABB(); };
   virtual ~Primitive();
 };
@@ -20,6 +22,7 @@ public:
   }
 
   virtual Intersection intersect(const Ray &ray) const;
+  virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
   virtual ~NonhierSphere();
 private:
@@ -35,6 +38,7 @@ public:
   }
   
   virtual Intersection intersect(const Ray &ray) const;
+  virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
   virtual ~NonhierBox();
 
@@ -47,6 +51,7 @@ class Sphere : public Primitive {
   static const NonhierSphere content;
 public:
   virtual Intersection intersect(const Ray &ray) const;
+  virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
   virtual ~Sphere();
 };
@@ -55,6 +60,7 @@ class Cube : public Primitive {
   static const NonhierBox content;
 public:
   virtual Intersection intersect(const Ray &ray) const;
+  virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
   virtual ~Cube();
 };

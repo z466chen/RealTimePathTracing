@@ -1,4 +1,5 @@
 #pragma once
+
 #include <vector>
 #include <memory>
 
@@ -19,7 +20,7 @@ class BVH {
         AABB bbox;
         
         std::vector<Object *> objs;
-
+        
         std::unique_ptr<BVHNode> left = nullptr;
         std::unique_ptr<BVHNode> right = nullptr;
     };
@@ -36,6 +37,7 @@ public:
     BVH(SceneNode *root);
     BVH(std::vector<Object *> &&objs);
 
+    double sdf(const glm::vec3 &t) const;
     Intersection intersect(const Ray &ray) const;
     AABB getAABB() const;
 };
