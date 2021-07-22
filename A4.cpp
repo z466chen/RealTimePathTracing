@@ -99,10 +99,6 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth) const {
 					
 				}
 
-				// std::cout << glm::to_string(matInfo->kd) << std::endl;
-				// std::cout << "ambient: " << glm::to_string(ambient) << 
-				// 		" diffuse: " << glm::to_string(diffuse) << 
-				// 		" specular: " << glm::to_string(specular) << std::endl;
 				return vec_min(ambient + diffuse * matInfo->kd + specular * matInfo->ks, white);
 				break;
 			}
@@ -124,15 +120,15 @@ void A4_Canvas::render(const A4_Scene & scene) {
 	// if main scene is not initalized, the do not render
 	if (!scene.is_initialized()) return;
 
-  	// std::cout << "F20: Calling A4_Render(\n" <<
-	// 	  "\t" << *scene.root <<
-    //       "\t" << "Image(width:" << image.width() << ", height:" << image.height() << ")\n"
-    //       "\t" << "eye:  " << glm::to_string(scene.camera.getCamEye()) << std::endl <<
-	// 	  "\t" << "view: " << glm::to_string(scene.camera.getCamView()) << std::endl <<
-	// 	  "\t" << "up:   " << glm::to_string(scene.camera.getCamUp()) << std::endl <<
-	// 	  "\t" << "fovy: " << scene.camera.getFov() << std::endl <<
-    //       "\t" << "ambient: " << glm::to_string(scene.ambient) << std::endl <<
-	// 	  "\t" << "lights{" << std::endl;
+  	std::cout << "F20: Calling A4_Render(\n" <<
+		  "\t" << *scene.root <<
+          "\t" << "Image(width:" << image.width() << ", height:" << image.height() << ")\n"
+          "\t" << "eye:  " << glm::to_string(scene.camera.getCamEye()) << std::endl <<
+		  "\t" << "view: " << glm::to_string(scene.camera.getCamView()) << std::endl <<
+		  "\t" << "up:   " << glm::to_string(scene.camera.getCamUp()) << std::endl <<
+		  "\t" << "fovy: " << scene.camera.getFov() << std::endl <<
+          "\t" << "ambient: " << glm::to_string(scene.ambient) << std::endl <<
+		  "\t" << "lights{" << std::endl;
 
 	for(const Light * light : scene.lights) {
 		std::cout << "\t\t" <<  *light << std::endl;
@@ -158,9 +154,6 @@ void A4_Canvas::render(const A4_Scene & scene) {
 		sampler->pick(sample, weight, pixels);
 		glm::vec3 dir = vtrans(glm::transpose(scene.camera.getViewMatrix()), 
 			glm::vec3((sample.x- w*0.5f)*h_ratio, (h*0.5f - sample.y)*w_ratio,-1.0f));
-		// std::cout << glm::to_string(glm::vec3(glm::transpose(scene.camera.getViewMatrix()) * glm::vec4(0.0f, 0.0f,-1, 0.0f))) << std::endl;
-		// std::cout << glm::to_string(vtrans(glm::transpose(scene.camera.getViewMatrix()), glm::vec3(0.0f, 0.0f,-1))) << std::endl << std::endl;
-		// std::cout << glm::to_string(scene.camera.getViewMatrix()) << std::endl;
 		
 		Ray primaryRay = Ray(scene.camera.getCamEye(), dir);
 		glm::vec3 color = scene.castRay(primaryRay, 0);
@@ -172,6 +165,18 @@ void A4_Canvas::render(const A4_Scene & scene) {
 			image(p.x, p.y, 1) += (double)color.g*weight;
 			// Blue: 
 			image(p.x, p.y, 2) += (double)color.b*weight;			
+		}
+
+		for (auto &p: pixels) {
+			if (glm::l2Norm(glm::vec3(image(p.x, p.y, 0), 
+			image(p.x, p.y, 1), image(p.x, p.y, 2))) < EPSILON) {
+				// Red: 
+				image(p.x, p.y, 0) = (double)bg_img(p.x, p.y, 0);
+				// Green: 
+				image(p.x, p.y, 1) = (double)bg_img(p.x, p.y, 1);
+				// Blue: 
+				image(p.x, p.y, 2) = (double)bg_img(p.x, p.y, 2);	
+			}
 		}
 	}
 }

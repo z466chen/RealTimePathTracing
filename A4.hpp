@@ -55,9 +55,10 @@ public:
 	SamplerType s_type = SamplerType::SINGLE;
 	std::unique_ptr<Sampler> sampler = std::make_unique<SingleSampler>();
 	Image image;
+	Image bg_img;
 	
 
-	A4_Canvas(uint width, uint height): image{width, height, background} {};
+	A4_Canvas(uint width, uint height): image{width, height}, bg_img{width, height,background} {};
 	A4_Canvas(uint width, uint height, SamplerType s_type): A4_Canvas{width, height}{
 		this->s_type = s_type;
 		switch (s_type) {

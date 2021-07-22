@@ -204,7 +204,6 @@ RoundBox::RoundBox(const glm::vec3 &size, float radius):size{size},radius{radius
 Intersection RoundBox::intersect(const Ray &ray) const {
     Intersection result;
 
-    // std::cout << "hello" << std::endl;
     glm::vec3 ro = ray.origin;
     glm::vec3 rd = glm::normalize(ray.direction);
     float dnorm = glm::l2Norm(ray.direction);
@@ -437,5 +436,116 @@ AABB Cylinder::getAABB() const {
 }
 
 Cylinder::~Cylinder() {
+
+}
+
+Torus::Torus(float r1, float r2):parameters{r1, r2} {}
+
+
+Intersection Torus::intersect(const Ray &ray) const {
+    Intersection result;
+
+    glm::vec3 ro = ray.origin;
+    glm::vec3 rd = glm::normalize(ray.direction);
+    float dnorm = glm::l2Norm(ray.direction);
+
+    float po = 1.0;
+    float Ra2 = parameters.x*parameters.x;
+    float ra2 = parameters.y*parameters.y;
+    float m = dot(ro,ro);
+    float n = dot(ro,rd);
+    float k = (m + Ra2 - ra2)/2.0;
+    float k3 = n;
+    float k2 = n*n - Ra2*(rd.x*rd.x + rd.y*rd.y) + k;
+    float k1 = n*k - Ra2*(rd.x*ro.x + rd.y*ro.y);
+    float k0 = k*k - Ra2*(ro.x*ro.x + ro.y*ro.y);
+    
+    if( abs(k3*(k3*k3-k2)+k1) < 0.01 )
+    {
+        po = -1.0;
+        float tmp=k1; k1=k3; k3=tmp;
+        k0 = 1.0/k0;
+        k1 = k1*k0;
+        k2 = k2*k0;
+        k3 = k3*k0;
+    }
+    
+    float c2 = k2*2.0 - 3.0*k3*k3;
+    float c1 = k3*(k3*k3-k2)+k1;
+    float c0 = k3*(k3*(c2+2.0*k2)-8.0*k1)+4.0*k0;
+    c2 /= 3.0;
+    c1 *= 2.0;
+    c0 /= 3.0;
+    float Q = c2*c2 + c0;
+    float R = c2*c2*c2 - 3.0*c2*c0 + c1*c1;
+    float h = R*R - Q*Q*Q;
+    
+    if( h>=0.0 )  
+    {
+        h = sqrt(h);
+        float v = glm::sign(R+h)*pow(abs(R+h),1.0/3.0); // cube root
+        float u = glm::sign(R-h)*pow(abs(R-h),1.0/3.0); // cube root
+        glm::vec2 s = glm::vec2( (v+u)+4.0*c2, (v-u)*sqrt(3.0));
+        float y = sqrt(0.5*(glm::length(s)+s.x));
+        float x = 0.5*s.y/y;
+        float r = 2.0*c1/(x*x+y*y);
+        float t1 =  x - r - k3; t1 = (po<0.0)?2.0/t1:t1;
+        float t2 = -x - r - k3; t2 = (po<0.0)?2.0/t2:t2;
+        float t = 1e20;
+        if( t1>0.0 ) t=t1;
+        if( t2>0.0 ) t=fmin(t,t2);
+        if (t < 1e19 && t > 0) {
+            //found !
+            result.intersects = true;
+            result.t = t/dnorm;
+            result.position = ray.direction * t + ray.origin;
+            result.normal = glm::normalize( result.position*(
+                glm::dot(result.position,result.position)-
+                parameters.y*parameters.y - parameters.x*parameters.x*glm::vec3(1.0,1.0,-1.0)));
+        }
+        return result;
+    }
+    
+    float sQ = sqrt(Q);
+    float w = sQ*cos( acos(-R/(sQ*Q)) / 3.0 );
+    float d2 = -(w+c2); if( d2<0.0 ) return result;
+    float d1 = sqrt(d2);
+    float h1 = sqrt(w - 2.0*c2 + c1/d1);
+    float h2 = sqrt(w - 2.0*c2 - c1/d1);
+    float t1 = -d1 - h1 - k3; t1 = (po<0.0)?2.0/t1:t1;
+    float t2 = -d1 + h1 - k3; t2 = (po<0.0)?2.0/t2:t2;
+    float t3 =  d1 - h2 - k3; t3 = (po<0.0)?2.0/t3:t3;
+    float t4 =  d1 + h2 - k3; t4 = (po<0.0)?2.0/t4:t4;
+    float t = 1e20;
+    if( t1>0.0 ) t=t1;
+    if( t2>0.0 ) t=fmin(t,t2);
+    if( t3>0.0 ) t=fmin(t,t3);
+    if( t4>0.0 ) t=fmin(t,t4);
+
+    //found !
+    result.intersects = true;
+    result.t = t/dnorm;
+    result.position = ray.direction * t + ray.origin;
+    result.normal = glm::normalize( result.position*(
+        glm::dot(result.position,result.position)-
+        parameters.y*parameters.y - parameters.x*parameters.x*glm::vec3(1.0,1.0,-1.0)));
+    return result;
+}
+
+double Torus::sdf(const glm::vec3 &t) const {
+    glm::vec2 q = glm::vec2(glm::l2Norm(glm::vec3(t.x, 0.0f, t.z))-parameters.x,t.y);
+    return glm::l2Norm(glm::vec3(q, 0.0f)) - parameters.y;
+}
+
+AABB Torus::getAABB() const {
+    AABB result;
+    result.lower_bound = glm::vec3(-parameters.x - parameters.y, -parameters.x - parameters.y, 
+        -parameters.y);
+    result.upper_bound = glm::vec3(parameters.x + parameters.y, parameters.x + parameters.y, 
+        parameters.y);
+    return result;
+}
+
+Torus::~Torus() {
 
 }

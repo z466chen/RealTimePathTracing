@@ -91,13 +91,12 @@ public:
 
 
 // // Torus Centred at (0,0,0)
-// class Cylinder: public Primitive {
-//   float radius;
-//   float height;
-// public:
-//   Cylinder(float height,float radius);
-//   virtual Intersection intersect(const Ray &ray) const;
-//   virtual double sdf(const glm::vec3 &t) const;
-//   virtual AABB getAABB() const;
-//   virtual ~Cylinder();
-// };
+class Torus: public Primitive {
+  glm::vec2 parameters;
+public:
+  Torus(float rx,float ry);
+  virtual Intersection intersect(const Ray &ray) const;
+  virtual double sdf(const glm::vec3 &t) const;
+  virtual AABB getAABB() const;
+  virtual ~Torus();
+};

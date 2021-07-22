@@ -291,6 +291,26 @@ int gr_cylinder_cmd(lua_State* L) {
   return 1;  
 }
 
+extern "C"
+int gr_torus_cmd(lua_State* L) {
+  GRLUA_DEBUG_CALL;
+  
+  gr_node_ud* data = (gr_node_ud*)lua_newuserdata(L, sizeof(gr_node_ud));
+  data->node = 0;
+
+  const char* name = luaL_checkstring(L, 1);
+
+  double rx = luaL_checknumber(L, 2);
+
+  double ry = luaL_checknumber(L, 3);
+
+  data->node = new GeometryNode(name, new Torus(rx, ry));
+
+  luaL_getmetatable(L, "gr.node");
+  lua_setmetatable(L, -2);
+
+  return 1;  
+}
 
 // Create a csg node
 extern "C"
@@ -797,6 +817,7 @@ static const luaL_Reg grlib_functions[] = {
   // Newly added primitives
   {"round_box", gr_round_box_cmd},
   {"cylinder", gr_cylinder_cmd},
+  {"torus", gr_torus_cmd},
   
   {"mesh", gr_mesh_cmd},
   {"light", gr_light_cmd},
