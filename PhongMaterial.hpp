@@ -17,5 +17,8 @@ public:
   double ior = 2.0;
 
   double m_shininess;
+
+  std::shared_ptr<MaterialInfo> getMaterialInfo(const glm::vec3 &t, 
+    const Primitive * primitive) const;
 private:
 };

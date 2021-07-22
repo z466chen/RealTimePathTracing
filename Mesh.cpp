@@ -67,9 +67,9 @@ double Mesh::sdf(const glm::vec3 &t) const {
 
 Intersection Mesh::intersect(const Ray &ray) const {
 	auto result = bvh->intersect(ray);
-	if (result.intersects) {
-		result.obj = this;
-	}
+	// if (result.intersects) {
+	// 	result.obj = this;
+	// }
 	return result;
 }
 

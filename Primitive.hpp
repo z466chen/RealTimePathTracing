@@ -64,3 +64,40 @@ public:
   virtual AABB getAABB() const;
   virtual ~Cube();
 };
+
+// RoundBox Centred at (0,0,0)
+class RoundBox: public Primitive {
+  glm::vec3 size;
+  float radius;
+public:
+  RoundBox(const glm::vec3 &size, float radius);
+  virtual Intersection intersect(const Ray &ray) const;
+  virtual double sdf(const glm::vec3 &t) const;
+  virtual AABB getAABB() const;
+  virtual ~RoundBox();
+};
+
+// Cylinder Centred at (0,0,0)
+class Cylinder: public Primitive {
+  float radius;
+  float height;
+public:
+  Cylinder(float height,float radius);
+  virtual Intersection intersect(const Ray &ray) const;
+  virtual double sdf(const glm::vec3 &t) const;
+  virtual AABB getAABB() const;
+  virtual ~Cylinder();
+};
+
+
+// // Torus Centred at (0,0,0)
+// class Cylinder: public Primitive {
+//   float radius;
+//   float height;
+// public:
+//   Cylinder(float height,float radius);
+//   virtual Intersection intersect(const Ray &ray) const;
+//   virtual double sdf(const glm::vec3 &t) const;
+//   virtual AABB getAABB() const;
+//   virtual ~Cylinder();
+// };

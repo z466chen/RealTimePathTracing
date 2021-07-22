@@ -17,7 +17,8 @@ class CSGNode: public GeometryNode {
 
     bool __bboxIntersectionWithRay(const Ray &ray, const AABB &box,
         double &start, double &end) const;
-    double __getSDFWithMaterial(const glm::vec3 &t, Material ** mat) const;
+    std::shared_ptr<MaterialInfo> __getMatInfoWithDistance(const glm::vec3 &t, 
+        float &dst, bool shouldCalcColor = true) const;
     glm::vec3 __estimateNormal(const glm::vec3 &t) const;
 
 public:

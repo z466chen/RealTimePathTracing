@@ -33,11 +33,15 @@ void GeometryNode::setMaterial( Material *mat )
 	m_material = mat;
 }
 
+std::shared_ptr<MaterialInfo> GeometryNode::getMaterialInfo(const glm::vec3 &t) const {
+	return m_material->getMaterialInfo(t, m_primitive);
+}
+
 Intersection GeometryNode::intersect(const Ray &ray) const {
 	Intersection result = m_primitive->intersect(ray);
 	// std::cout << "gnode: " << result.intersects << std::endl;
 	if (result.intersects) {
-		result.material = m_material;
+		result.matInfo = getMaterialInfo(result.position);
 	}
 	return result;
 }

@@ -30,11 +30,44 @@ Image::Image(uint width, uint height,const char *filename) {
   if (error != 0) {    
     return;
   }
+  // for (int i = 0; i < numElements ; ++i) {
+    
+  //   m_data[i] = img[i]/255.0f;
+  // }
+  for (int i = 0; i < height; ++i) {
+    for (int j = 0; j < width; ++j) {
+      int y0 = (i * (img_height - 1)) / height;
+      float ry = ((i * (img_height - 1)) % height) / (float) height;
+      int x0 = (j * (img_width - 1)) / width;
+      float rx = ((j * (img_width - 1)) % width) / (float) width;
+      
+      for (int k = 0; k < m_colorComponents; ++k) {
+        size_t index = (y0*img_width + x0)*m_colorComponents + k;
+        unsigned char C00 = img[index];
+        unsigned char C10 = img[index + m_colorComponents];
+        index = index + img_width*m_colorComponents;
+        unsigned char C01 = img[index];
+        unsigned char C11 = img[index + m_colorComponents];
 
+        m_data[(i*width+j)*3+k] = (C00*(1 - ry)*(1 - rx) + C10*rx*(1 - ry) + C01*ry*(1 - rx) + C11*rx*ry)/255.0f;
+      }
+    }
+  }
+}
+
+Image::Image(const char *filename) { 
+	
+  std::vector<unsigned char> img;
+  unsigned int error = lodepng::decode(img, m_width, m_height, filename, LCT_RGB);
+  if (error != 0) {    
+    return;
+  }
+
+  size_t numElements = m_width * m_height * m_colorComponents;
 	m_data = new double[numElements];
   for (int i = 0; i < numElements ; ++i) {
     m_data[i] = img[i]/255.0f;
-  }
+  }  
 }
 
 //---------------------------------------------------------------------------------------

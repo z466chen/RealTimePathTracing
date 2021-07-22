@@ -31,37 +31,42 @@ bool CSGNode::__bboxIntersectionWithRay(const Ray &ray, const AABB &box,
     auto lowert = fmax(lower_ts.x, fmax(lower_ts.y, lower_ts.z));
     auto uppert = fmin(upper_ts.x, fmin(upper_ts.y, upper_ts.z));;
 
-    const float delta = 5;
+    const float delta = 1;
     start = (lowert > delta)? lowert:delta;
     end = (uppert > delta)? uppert:delta;
     return (uppert > 0) && (lowert < uppert);   
 }
 
-double CSGNode::__getSDFWithMaterial(const glm::vec3 &t, Material ** mat) const {
+std::shared_ptr<MaterialInfo> CSGNode::__getMatInfoWithDistance(const glm::vec3 &t, 
+        float &dst, bool shouldCalcColor) const {
 
-    Material *leftm;
-    double left;
     auto leftNode = *children.begin();
+    std::shared_ptr<MaterialInfo> leftInfo;
     if (leftNode->m_nodeType == NodeType::CSGNode) {
-        left = static_cast<CSGNode *>(leftNode)->__getSDFWithMaterial(t, &leftm);
+        leftInfo = static_cast<CSGNode *>(leftNode)->__getMatInfoWithDistance(t, dst, shouldCalcColor);
     } else {
         GeometryNode *leftNodeReal = static_cast<GeometryNode *>(leftNode);
         glm::vec3 trans_t =  ptrans(leftNodeReal->inv_t_matrix, t);
         // std::cout << glm::to_string(t) << " " << glm::to_string(trans_t) << std::endl;
-        left = leftNodeReal->m_primitive->sdf(trans_t);
-        leftm = leftNodeReal->m_material;
+        dst = leftNodeReal->m_primitive->sdf(trans_t);
+        if (shouldCalcColor) {
+            leftInfo = leftNodeReal->getMaterialInfo(t);
+        }
     }
     
-    Material *rightm;
-    double right;
+
+    std::shared_ptr<MaterialInfo> rightInfo;
+    float right;
     auto rightNode = *(++children.begin());
     if (rightNode->m_nodeType == NodeType::CSGNode) {
-        right = static_cast<CSGNode *>(rightNode)->__getSDFWithMaterial(t, &rightm);
+        rightInfo = static_cast<CSGNode *>(rightNode)->__getMatInfoWithDistance(t, right,shouldCalcColor);
     } else {
         GeometryNode *rightNodeReal = static_cast<GeometryNode *>(rightNode);
         glm::vec3 trans_t = ptrans(rightNodeReal->inv_t_matrix, t); 
         right = rightNodeReal->m_primitive->sdf(trans_t);
-        rightm = rightNodeReal->m_material;
+        if (shouldCalcColor) {
+            rightInfo = rightNodeReal->getMaterialInfo(t);
+        }
     }
 
     double r;
@@ -69,24 +74,36 @@ double CSGNode::__getSDFWithMaterial(const glm::vec3 &t, Material ** mat) const 
     switch (operation) {
     
     case CSGNodeType::INTERSECTION:
-        *mat = (left > right)? rightm:leftm;
-        return fmax(left, right);
+        if (dst < right) {
+            dst = right;
+            return rightInfo;
+        }
+        
+        return leftInfo;
         break;
 
     case CSGNodeType::DIFFERENCE:
-        *mat = leftm;
-        r = fmax(left, -right);
-        return r;
+        dst = fmax(dst, -right);
+
+        return leftInfo;
         break;
     case CSGNodeType::UNION:
-        *mat = (left > right)? leftm:rightm;
-        return fmin(left, right);
+        if (dst > right) {
+            dst = right;
+            return rightInfo;
+        } 
+        return leftInfo;
         break;
     case CSGNodeType::SMOOTH_UNION:
-        *mat = leftm;
         float k = 50.0f;
-        float h = fmax(k - fabs(left - right), 0.0f) / k;
-        return fmin(left, right) - pow(h, 3)*k*(1/6.0f);
+        float h = fmax(k - fabs(dst - right), 0.0f) / k;
+
+        if (shouldCalcColor) {
+            leftInfo->blendMaterial(rightInfo.get(), 1.0f - h);
+        }
+
+        dst = fmin(dst, right) - pow(h, 3)*k*(1/6.0f);
+        return leftInfo;
         break;
     }
 
@@ -102,11 +119,17 @@ glm::vec3 CSGNode::__estimateNormal(const glm::vec3 &t) const {
     glm::vec3 z_plus = glm::vec3(t.x,t.y,t.z+EPSILON);
     glm::vec3 z_minus = glm::vec3(t.x,t.y,t.z-EPSILON);
 
-    Material *temp;
-    float x = __getSDFWithMaterial(x_plus, &temp) - __getSDFWithMaterial(x_minus, &temp);
-    float y = __getSDFWithMaterial(y_plus, &temp) - __getSDFWithMaterial(y_minus, &temp);
-    float z = __getSDFWithMaterial(z_plus, &temp) - __getSDFWithMaterial(z_minus, &temp);
-    return glm::normalize(glm::vec3(x,y,z));
+
+    glm::vec3 start;
+    glm::vec3 end;
+    __getMatInfoWithDistance(x_plus, start.x, false);
+    __getMatInfoWithDistance(x_minus, end.x, false);
+    __getMatInfoWithDistance(y_plus, start.y, false);
+    __getMatInfoWithDistance(y_minus, end.y, false);
+    __getMatInfoWithDistance(z_plus, start.z, false);
+    __getMatInfoWithDistance(z_minus, end.z, false);
+    
+   return glm::normalize(start - end);
 }
 
 void CSGNode::init() {
@@ -147,16 +170,14 @@ Intersection CSGNode::intersect(const Ray &ray) const {
     glm::vec3 t = ray.origin + (float)current * ray.direction;
     // int step = 0;
     while(current < end) {
-        Material *m = nullptr;
-        double dst = __getSDFWithMaterial(t, &m);
+        float dst;
+        result.matInfo = __getMatInfoWithDistance(t, dst);
         if (dst < EPSILON) {
+            
             result.normal = __estimateNormal(t);
-            result.material = m;
             result.position = t;
-            // std::cout << glm::to_string(t) << std::endl;
             result.t = current;
             result.intersects = true;
-            result.isCSG = true;
             break;
         }
 

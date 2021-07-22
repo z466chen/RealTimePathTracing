@@ -26,26 +26,27 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth) const {
 	if (depth > maxDepth) return glm::vec3(0.0f); 
 	Intersection payload = traverse(ray);
 
+	
 	if (payload.intersects) {
 		
-		const PhongMaterial *material = 
-			static_cast<const PhongMaterial *>(payload.material); 
-		switch(payload.material->type) {
+		const PhongMaterialInfo *matInfo = static_cast<const PhongMaterialInfo *>(payload.matInfo.get());
+
+		switch(matInfo->type) {
 			case MaterialType::SPECULAR: {
  				double cos_i = glm::dot(-ray.direction, payload.normal);
 
 				double theta_t;
 				double kr;
 				double n1 = 1.0f;
-				double n2 = material->ior;
+				double n2 = matInfo->ior;
 				if (cos_i < 0) {
 					std::swap(n1, n2);
 				}
 				cos_i = fabs(cos_i);
 				double theta_i = acos(cos_i);
 
-				material->snell(theta_i, theta_t, n1, n2);
-				material->fresnel(theta_i, theta_t, kr, n1, n2);
+				matInfo->snell(theta_i, theta_t, n1, n2);
+				matInfo->fresnel(theta_i, theta_t, kr, n1, n2);
 
 				glm::vec3 reflectDir = glm::normalize(2.0f * cos_i * payload.normal + ray.direction);
 				glm::vec3 refractDir = glm::normalize(((n1/n2) * cos_i - cos(theta_t)) * payload.normal + 
@@ -59,8 +60,8 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth) const {
 					((glm::dot(payload.normal, refractDir) > 0)? payload.normal*EPSILON: 
 					-payload.normal*EPSILON), refractDir);
 
-
-				return vec_min(ambient * material->m_kd + material->m_ks * (kr * castRay(reflectionRay,depth+1)  
+				return vec_min(ambient * matInfo->kd + 
+						matInfo->ks * (kr * castRay(reflectionRay,depth+1)  
 					 +(1 - kr) * castRay(refractionRay,depth+1)), white);
 				break;
 			}
@@ -92,16 +93,17 @@ glm::vec3 A4_Scene::__RTCastRay(const Ray &ray,int depth) const {
 							vectorToLight),0.0f) * light->colour;
 						glm::vec3 h = glm::normalize(vectorToLight - ray.direction);
 						specular += pow(fmax(glm::dot(payload.normal, h), 0.0f), 
-							material->m_shininess) * light->colour;
+							matInfo->shininess) * light->colour;
 						
 					}
 					
 				}
 
+				// std::cout << glm::to_string(matInfo->kd) << std::endl;
 				// std::cout << "ambient: " << glm::to_string(ambient) << 
 				// 		" diffuse: " << glm::to_string(diffuse) << 
 				// 		" specular: " << glm::to_string(specular) << std::endl;
-				return vec_min(ambient + diffuse * material->m_kd + specular * material->m_ks, white);
+				return vec_min(ambient + diffuse * matInfo->kd + specular * matInfo->ks, white);
 				break;
 			}
 		}

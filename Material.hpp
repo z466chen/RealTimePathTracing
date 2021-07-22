@@ -2,20 +2,19 @@
 
 #pragma once
 
-// List of supported material type
-enum class MaterialType {
-  DIFFUSE = 0,
-  SPECULAR
-};
+#include <memory>
+#include "MaterialInfo.hpp"
+class Primitive;
 
 class Material {
 public:
   MaterialType type;
+
+  virtual std::shared_ptr<MaterialInfo> getMaterialInfo(const glm::vec3 & type, 
+    const Primitive *primitive) const { return std::make_shared<MaterialInfo>(); };
   virtual ~Material();
 
-  void snell(const double & theta_i, double & theta_t, float n1, float n2) const;
-  void fresnel(const double &theta_i, 
-    const double &theta_t, double &r_eff, float n1, float n2) const;
+
 protected:
   Material();
 };

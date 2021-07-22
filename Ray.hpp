@@ -1,10 +1,11 @@
 #pragma once
 
 #include <glm/glm.hpp>
-
+#include <memory>
 #include <iostream>
-class Material;
-class Primitive;
+#include "MaterialInfo.hpp"
+// class Material;
+// class Primitive;
 
 class Ray {
 public:
@@ -18,13 +19,16 @@ public:
 
 class Intersection {
 public:
-    const Primitive *obj = nullptr;
-    const Material * material = nullptr;
+    // const Primitive *obj = nullptr;
+    // const Material * material = nullptr;
     glm::vec3 normal;
     glm::vec3 position;
+
+    //color informations
+    std::shared_ptr<MaterialInfo> matInfo = nullptr;
+
     double t = 0.0;
     bool intersects = false;
-    bool isCSG = false;
 
     Intersection() {
         // std::cout << intersects << std::endl;

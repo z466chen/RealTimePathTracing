@@ -58,6 +58,7 @@
 #include "Primitive.hpp"
 #include "Material.hpp"
 #include "PhongMaterial.hpp"
+#include "SolidMaterial.hpp"
 #include "A4.hpp"
 
 typedef std::map<std::string,Mesh*> MeshMap;
@@ -246,6 +247,50 @@ int gr_nh_box_cmd(lua_State* L)
 
   return 1;
 }
+
+extern "C"
+int gr_round_box_cmd(lua_State* L) {
+  GRLUA_DEBUG_CALL;
+  
+  gr_node_ud* data = (gr_node_ud*)lua_newuserdata(L, sizeof(gr_node_ud));
+  data->node = 0;
+
+  const char* name = luaL_checkstring(L, 1);
+
+  glm::vec3 size;
+  get_tuple(L, 2, &size[0], 3);
+
+  double radius = luaL_checknumber(L, 3);
+
+  data->node = new GeometryNode(name, new RoundBox(size, radius));
+
+  luaL_getmetatable(L, "gr.node");
+  lua_setmetatable(L, -2);
+
+  return 1;  
+}
+
+extern "C"
+int gr_cylinder_cmd(lua_State* L) {
+  GRLUA_DEBUG_CALL;
+  
+  gr_node_ud* data = (gr_node_ud*)lua_newuserdata(L, sizeof(gr_node_ud));
+  data->node = 0;
+
+  const char* name = luaL_checkstring(L, 1);
+
+  double height = luaL_checknumber(L, 2);
+
+  double radius = luaL_checknumber(L, 3);
+
+  data->node = new GeometryNode(name, new Cylinder(height, radius));
+
+  luaL_getmetatable(L, "gr.node");
+  lua_setmetatable(L, -2);
+
+  return 1;  
+}
+
 
 // Create a csg node
 extern "C"
@@ -546,7 +591,8 @@ int gr_material_cmd(lua_State* L)
 
   double shininess = luaL_checknumber(L, 3);
 
-  if (lua_gettop(L) > 4) {
+  int nov = lua_gettop(L);
+  if (nov > 4) {
     
     const char* name = luaL_checkstring(L, 4);
     if (strcmp(name, "specular") == 0) {
@@ -557,6 +603,38 @@ int gr_material_cmd(lua_State* L)
   data->material = new PhongMaterial(glm::vec3(kd[0], kd[1], kd[2]),
                                      glm::vec3(ks[0], ks[1], ks[2]),
                                      shininess, type);
+
+  luaL_newmetatable(L, "gr.material");
+  lua_setmetatable(L, -2);
+  
+  return 1;
+}
+
+// Create a solid material
+extern "C"
+int gr_solid_cmd(lua_State* L)
+{
+  GRLUA_DEBUG_CALL;
+
+  MaterialType type = MaterialType::DIFFUSE;
+
+  gr_material_ud* data = (gr_material_ud*)lua_newuserdata(L, sizeof(gr_material_ud));
+  data->material = 0;
+  
+  double periods[3];
+  get_tuple(L, 1, periods, 3);
+  double turbPower = luaL_checknumber(L, 2);
+  double shininess = luaL_checknumber(L, 3);
+
+  int nov = lua_gettop(L);
+  if (nov > 4) {
+    const char* name = luaL_checkstring(L, 4);
+    if (strcmp(name, "specular") == 0) {
+      type = MaterialType::SPECULAR;
+    }
+  }
+
+  data->material = new SolidMaterial(glm::vec3(periods[0], periods[1], periods[2]), turbPower, shininess, type);
 
   luaL_newmetatable(L, "gr.material");
   lua_setmetatable(L, -2);
@@ -599,6 +677,9 @@ int gr_node_set_material_cmd(lua_State* L)
   luaL_argcheck(L, self != 0, 1, "Geometry node expected");
   
   gr_material_ud* matdata = (gr_material_ud*)luaL_checkudata(L, 2, "gr.material");
+  if (!matdata) {
+    matdata = (gr_material_ud*)luaL_checkudata(L, 2, "gr.solid");
+  }
   luaL_argcheck(L, matdata != 0, 2, "Material expected");
 
   Material* material = matdata->material;
@@ -707,10 +788,16 @@ static const luaL_Reg grlib_functions[] = {
   {"sphere", gr_sphere_cmd},
   {"joint", gr_joint_cmd},
   {"material", gr_material_cmd},
+  {"solid", gr_solid_cmd},
   // New for assignment 4
   {"cube", gr_cube_cmd},
   {"nh_sphere", gr_nh_sphere_cmd},
   {"nh_box", gr_nh_box_cmd},
+
+  // Newly added primitives
+  {"round_box", gr_round_box_cmd},
+  {"cylinder", gr_cylinder_cmd},
+  
   {"mesh", gr_mesh_cmd},
   {"light", gr_light_cmd},
   {"render", gr_render_cmd},

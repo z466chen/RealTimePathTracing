@@ -22,6 +22,9 @@ public:
 	// Construct image from a file, resize 
 	Image(uint width, uint height,const char *filename);
 
+	// Construct image from a file, with original size 
+	Image(const char *filename);
+
 	// Construct a black image at the given width/height.
 	Image(uint width, uint height);
 
