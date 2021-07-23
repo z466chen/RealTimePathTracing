@@ -1,5 +1,44 @@
-Uses Harmmersley low discrepancy sequence generator for quasi monte-carlo sampling.
+1. Compilation:
+    1.1 Instruction: 
+        1.1.1 modify macros in file "defines.hpp"
+        1.1.2 premake4 gmake
+        1.1.3 make
+        1.1.4 ./A3 <target-file>
+        you should see a interactive window after previous instructions with the target lua file object
 
-https://people.sc.fsu.edu/~jburkardt/cpp_src/hammersley/hammersley.html
+        Toggle of ANTI_ALIASING when generating anti-aliased images, result should be located the result/{method}_{img_name}.png
+    1.2 Additional Assumptions
 
-CSGNode does not use BVH
+    1.3 Lab Computer
+        None
+
+2. Manual
+    Extra features implemented:
+        1. Mirror reflections
+        2. Refraction
+        3. Supersampling
+            3.1 grid
+            3.2 jitter
+            3.3 random
+            3.4 rotated_grids
+            3.5 quincunx
+            3.6 low_discrepancy sequence (harmmersley)
+                Uses Harmmersley low discrepancy sequence generator for quasi monte-carlo sampling.
+                https://people.sc.fsu.edu/~jburkardt/cpp_src/hammersley/hammersley.html
+
+        4. additional primitives
+            4.1 rounded_box: gr.rounded_box
+            4.2 cylinder: gr.cylinder
+            4.3 torus: gr.torus
+        5. Texture mapping
+            5.1 solid mapping using non-improved Perlin noise
+                https://mrl.cs.nyu.edu/~perlin/doc/oscar.html
+            gr.solid in lua file
+        6. CSG
+            gr.csg in lua file
+            Used sdf and raymarching techniques for implementing this part,
+            handles union, difference, intersection, and smooth blending
+
+NOTICE!!!!! All generated files are located at Assets/pictures/
+
+Really sorry for not having a very creative scene, I did not have enough time.
