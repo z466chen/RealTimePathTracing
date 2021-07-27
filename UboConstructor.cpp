@@ -68,14 +68,14 @@ void UboConstructor::construct(
         CHECK_GL_ERRORS;
     }
 
-    {
-        const int texture_size = 128;
+    // {
+    //     const int texture_size = 128;
 
-        glActiveTexture(GL_TEXTURE3);
-        __constructTexture(m_ubo_perlin, (void*)&perlin_arr[0], 
-            16*perlin_arr.size(), texture_size);
-        CHECK_GL_ERRORS;
-    }
+    //     glActiveTexture(GL_TEXTURE3);
+    //     __constructTexture(m_ubo_perlin, (void*)&perlin_arr[0], 
+    //         16*perlin_arr.size(), texture_size);
+    //     CHECK_GL_ERRORS;
+    // }
 
     {
         if (bvh_arr.size() > 1024) {
@@ -97,6 +97,24 @@ void UboConstructor::construct(
                 48*(bvh_mesh_arr.size() - 1024), texture_size);
             CHECK_GL_ERRORS;
         }
+    }
+
+    {
+        glGenBuffers(1, &m_ubo_perlin);
+        glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_perlin);
+        glBufferData(GL_UNIFORM_BUFFER, 16*514, NULL, GL_STATIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+        glBindBufferRange(GL_UNIFORM_BUFFER, 0, m_ubo_perlin, 0, 16*514);
+
+        glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_perlin);
+        for (int i = 0; i < perlin_arr.size(); ++i) {
+            auto &obj = perlin_arr[i];
+            glBufferSubData(GL_UNIFORM_BUFFER, i*16+0, 12, glm::value_ptr(obj.g));
+            glBufferSubData(GL_UNIFORM_BUFFER, i*16+12, 4, &obj.p);
+       }
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        CHECK_GL_ERRORS;
     }
 
     {

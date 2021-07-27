@@ -49,13 +49,14 @@ private:
     GLuint m_ubo_obj;
     GLuint m_ubo_vert;
     GLuint m_ubo_elem;
-    GLuint m_ubo_perlin;
     GLuint m_ubo_bvh_tex;
     GLuint m_ubo_bvh_mesh_tex;
+    GLuint m_ubo_perlin;
     GLuint m_ubo_mat;
     GLuint m_ubo_bvh;
     GLuint m_ubo_bvh_mesh;
     GLuint m_ubo_light;
+    GLuint m_camera;
 
     GLuint uobj;
     GLuint uvert;
@@ -67,7 +68,12 @@ private:
     GLuint ulight;
     GLuint ubvhTex;
     GLuint ubvhMeshTex;
+    GLuint ucamera;
 
+
+    GLuint uambient;
+    GLuint unol;
+    GLuint uwsize;
 
     GLuint m_bg_texture;
     GLuint ubackground;

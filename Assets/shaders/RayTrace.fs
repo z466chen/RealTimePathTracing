@@ -3,16 +3,26 @@
 #define FLT_MAX 3.402823466e+38
 #define FLT_MIN 1.175494351e-38
 #define EPSILON 0.01
+#define M_PI 3.14159265358979323846
+
+#define B_SIZE 0x100
+#define BM 0xff
+#define N 0x1000
+#define setup(i,b0,b1,r0,r1) temp = t[i] + N; b0 = (int(temp)) & BM;b1 = (b0+1) & BM;r0 = temp - int(temp);r1 = r0 - 1.0f;
+#define s_curve(t) ( t * t * (3. - 2. * t) )
+#define lerp(t, a, b) ( a + t * (b - a) )
 
 #define BVH_STACK_SIZE 40000
 #define BVH_MESH_STACK_SIZE 40000
 #define CSG_STACK_SIZE 200
+#define CAST_RAY_STACK_SIZE 100
+
 const int maxDepth = 5;
 
 uniform sampler2D obj_tex;
 uniform sampler2D vert_tex;
 uniform sampler2D elem_tex;
-uniform sampler2D perlin_tex;
+// uniform sampler2D perlin_tex;
 uniform sampler2D bvh_tex;
 uniform sampler2D bvh_mesh_tex;
 uniform sampler2D bg_tex;
@@ -56,6 +66,7 @@ struct MaterialInfo {
     vec3 ks;
     float shininess;
     float ior;
+    bool isDiffuse;
 };
 
 struct Intersection {
@@ -90,6 +101,11 @@ struct LocalBVHNode {
     int right_id;
 };
 
+struct PerlinNoiseNode {
+    vec3 g;
+    float p;
+};
+
 layout (std140) uniform Material {
     MaterialNode mat_node [100];
 };
@@ -106,15 +122,24 @@ layout (std140) uniform Light {
     LightNode light_node[1024];
 };
 
-layout (std140) uniform Camera {
-    uniform mat4 viewMatrix;
-    uniform vec3 eyePos;
-    float fov;
+layout (std140) uniform PerlinNoise {
+    PerlinNoiseNode perlin_node[B_SIZE+B_SIZE+2];
 };
 
-layout (std140) uniform WindowInfo {
-    uniform vec2 window_size;
+layout (std140) uniform Camera {
+    mat4 viewMatrix; // 0
+    vec3 eyePos; // 64
+    float fov; // 76
+            // 80
 };
+
+uniform vec3 ambient;
+uniform int num_of_lights;
+uniform vec2 window_size;
+
+// input/outputs
+in vec2 texCoord;
+out vec4 fragColor;
 
 vec3 vtrans(in mat4 m, vec3 v) {
     return (m * vec4(v, 0.0f)).xyz;
@@ -493,40 +518,164 @@ float getSdf(in Object obj, in vec3 t) {
     return sdf;
 }
 
+float noise(in vec3 t) {
+    int bx0, bx1, by0, by1, bz0, bz1, b00, b10, b01, b11;
+	float rx0, rx1, ry0, ry1, rz0, rz1, sy, sz, a, b, c, d, temp, u, v;
+    vec3 q;
+	int i, j;
+
+	setup(0, bx0,bx1, rx0,rx1);
+	setup(1, by0,by1, ry0,ry1);
+	setup(2, bz0,bz1, rz0,rz1);
+
+
+    
+	i = int(perlin_node[bx0].p);
+	j = int(perlin_node[bx1].p);
+
+	b00 = int(perlin_node[i + by0].p);
+	b10 = int(perlin_node[j + by0].p);
+	b01 = int(perlin_node[i + by1].p);
+	b11 = int(perlin_node[j + by1].p);
+
+	temp = s_curve(rx0);
+	sy = s_curve(ry0);
+	sz = s_curve(rz0);
+
+    #define at3(rx,ry,rz) ( rx * q[0] + ry * q[1] + rz * q[2] )
+
+
+	q = perlin_node[b00 + bz0].g ; u = at3(rx0,ry0,rz0);
+	q = perlin_node[b10 + bz0].g ; v = at3(rx1,ry0,rz0);
+	a = lerp(temp, u, v);
+
+	q = perlin_node[b01 + bz0].g ; u = at3(rx0,ry1,rz0);
+	q = perlin_node[b11 + bz0].g ; v = at3(rx1,ry1,rz0);
+	b = lerp(temp, u, v);
+
+	c = lerp(sy, a, b);
+
+	q = perlin_node[b00 + bz1].g ; u = at3(rx0,ry0,rz1);
+	q = perlin_node[b10 + bz1].g ; v = at3(rx1,ry0,rz1);
+	a = lerp(temp, u, v);
+
+	q = perlin_node[b01 + bz1].g ; u = at3(rx0,ry1,rz1);
+	q = perlin_node[b11 + bz1].g ; v = at3(rx1,ry1,rz1);
+	b = lerp(temp, u, v);
+
+	d = lerp(sy, a, b);
+
+	return lerp(sz, c, d);    
+}
+
+float turbulence(in vec3 t) {
+    float size = 32;
+    float value = 0.0; 
+    float initialSize = size;
+
+    while(size >= 1)
+    {
+        vec3 temp = vec3(t.x / size, t.y / size, t.z / size);
+        value += noise(temp) * size;
+        size /= 2.0;
+    }
+
+    return value/initialSize; 
+}
+
 MaterialInfo getMaterialInfo(in Object obj, in vec3 t) {
     MaterialInfo info;
 
     if (obj.mat_id < 0) return info;
     MaterialNode node = mat_node[obj.mat_id];
-    switch(node.mat_type) {
+    switch(int(node.mat_type)) {
         case 0: {
             // PHONG DIFFUSE
+            info.kd = vec3(node.mat_data_1.xy, node.mat_data_2.x);
+            info.ks = vec3(node.mat_data_2.y, node.mat_data_3.xy);
+            info.ior = node.mat_data_4.x;
+            info.shininess = node.mat_data_4.y;
+            info.isDiffuse = true;
             break;
         }
         case 1: {
-            // PHONG SPECULAR
+            info.kd = vec3(node.mat_data_1.xy, node.mat_data_2.x);
+            info.ks = vec3(node.mat_data_2.y, node.mat_data_3.xy);
+            info.ior = node.mat_data_4.x;
+            info.shininess = node.mat_data_4.y;
+            info.isDiffuse = false;
             break;
         }
         case 2: {
-            // SOLID DIFFUSE
+            AABB bbox = obj.bbox;
+            vec3 size = max(bbox.upper_bound - bbox.lower_bound, EPSILON);
+            vec3 local_coord = t - bbox.lower_bound;
+            vec3 periods = vec3(node.mat_data_1.xy, node.mat_data_2.x);
+            float turb_power = node.mat_data_3.y;
+            float seed = dot(local_coord, vec3(periods.x/size.x, periods.y/size.y, periods.z/size.z)) + 
+                turb_power * (turbulence(local_coord));
+            info.kd = vec3(abs(sin(seed*M_PI))); 
+            info.ks = vec3(abs(sin(seed*M_PI)));
+            info.ior = node.mat_data_2.y;
+            info.shininess = node.mat_data_3.x;
+            info.isDiffuse = true;
             break;
         }
         case 3: {
-            // SOLID SPECULAR
+            info.kd = vec3(node.mat_data_1.xy, node.mat_data_2.x);
+            info.ks = vec3(node.mat_data_2.y, node.mat_data_3.xy);
+            info.ior = node.mat_data_4.x;
+            info.shininess = node.mat_data_4.y;
+            info.isDiffuse = false;
             break;
         }
     }
     return info;
 } 
 
-float mergeSdf(int operation, float left_sdf, float right_sdf) {
-    return 0.0;
-}
+MaterialInfo mergeSdf(int operation, 
+    float left_sdf, float right_sdf,
+    in MaterialInfo left_mat_info, 
+    in MaterialInfo right_mat_info, 
+    out float dst, bool shouldCalcColor) {
+    
+    switch (operation) {
+        case 0: {
+            if (left_sdf > right_sdf) {
+                dst = right_sdf;
+                return right_mat_info;
+            } 
+            return left_mat_info;
+        }
+        case 1: {
+            if (left_sdf < right_sdf) {
+                dst = right_sdf;
+                return right_mat_info;
+            } 
+            return left_mat_info;
+        }
+        case 2: {
+            dst = max(left_sdf, -right_sdf);
+            return left_mat_info;
+        }
+        case 3: {
+            float k = 50.0f;
+            float h = max(k - abs(left_sdf - right_sdf), 0.0f) / k;
 
-MaterialInfo mergeMaterialInfo(int operation, 
-    in MaterialInfo left_mat_info, in MaterialInfo right_mat_info) {
-    MaterialInfo info;
-    return info;
+            if (shouldCalcColor) {
+                left_mat_info.kd = lerp(left_mat_info.kd, right_mat_info.kd, 1.0f - h);
+                left_mat_info.ks = lerp(left_mat_info.ks, right_mat_info.ks, 1.0f - h);
+                left_mat_info.shininess = lerp(left_mat_info.shininess, 
+                    right_mat_info.shininess, 1.0f - h);
+                if (h < 0.5) {
+                    left_mat_info.ior = right_mat_info.ior;
+                }
+            }
+
+            dst = min(dst, right_sdf) - pow(h, 3)*k*(1/6.0f);
+            return left_mat_info;
+        }
+    }
 }
 
 void loadObjects(in Object root) {
@@ -570,7 +719,7 @@ void loadObjects(in Object root) {
     }
 }
 
-MaterialInfo sdfWithMatInfo(in vec3 t, out float sdf) {
+MaterialInfo sdfWithMatInfo(in vec3 t, out float sdf, bool shouldCalcColor) {
     MaterialInfo info;
     
     parse_stack[0] = 0;
@@ -584,7 +733,9 @@ MaterialInfo sdfWithMatInfo(in vec3 t, out float sdf) {
 
         if (object.obj_type != 6) {
             sdf_cache[currentIndex] = getSdf(object, t);
-            mat_info_cache[currentIndex] = getMaterialInfo(object, t);
+            if (shouldCalcColor) {
+                mat_info_cache[currentIndex] = getMaterialInfo(object, t);
+            }
             --top;
             continue;
         }
@@ -609,18 +760,47 @@ MaterialInfo sdfWithMatInfo(in vec3 t, out float sdf) {
             MaterialInfo left_mat_info = mat_info_cache[left_id];
             MaterialInfo right_mat_info = mat_info_cache[right_id];
 
-            mergeSdf(operation, left_sdf, right_sdf);
-            mergeMaterialInfo(operation, left_mat_info, right_mat_info);
+            float sdf;
+            if (shouldCalcColor) {
+                mat_info_cache[currentIndex] = mergeSdf(
+                    operation, left_sdf, right_sdf, 
+                    left_mat_info, right_mat_info, sdf, true);
+            } else {
+                mergeSdf(operation, left_sdf, right_sdf, 
+                    left_mat_info, right_mat_info, sdf, true);
+            }
+            sdf_cache[currentIndex] = sdf;
             --top;
         }
     }
     sdf = sdf_cache[0];
-    info = mat_info_cache[0];
+    if (shouldCalcColor) {
+        info = mat_info_cache[0];
+    }
     return info;
 } 
 
 vec3 estimateNormal(vec3 t) {
-    // return vec3(0,0,0);
+    vec3 x_plus = vec3(t.x + EPSILON,t.y,t.z);
+    vec3 x_minus = vec3(t.x-EPSILON,t.y,t.z);
+
+    vec3 y_plus = vec3(t.x,t.y+EPSILON,t.z);
+    vec3 y_minus = vec3(t.x,t.y-EPSILON,t.z);
+
+    vec3 z_plus = vec3(t.x,t.y,t.z+EPSILON);
+    vec3 z_minus = vec3(t.x,t.y,t.z-EPSILON);
+
+
+    vec3 start;
+    vec3 end;
+    sdfWithMatInfo(x_plus, start.x, false);
+    sdfWithMatInfo(x_minus, end.x, false);
+    sdfWithMatInfo(y_plus, start.y, false);
+    sdfWithMatInfo(y_minus, end.y, false);
+    sdfWithMatInfo(z_plus, start.z, false);
+    sdfWithMatInfo(z_minus, end.z, false);
+    
+   return normalize(start - end);
 }
 
 Intersection objTraverse(in Object obj, in Ray ray) {
@@ -968,7 +1148,7 @@ Intersection objTraverse(in Object obj, in Ray ray) {
             while(current < end) {
                 loadObjects(obj);
                 float dst;
-                result.m = sdfWithMatInfo(t, dst);
+                result.m = sdfWithMatInfo(t, dst, true);
                 if (dst < EPSILON) {
                     
                     result.normal = estimateNormal(t);
@@ -1050,15 +1230,113 @@ Intersection bvhTraverse(in Ray ray) {
     return result;
 }
 
-vec3 castRay(in Ray ray, int depth) {
-    if (depth > maxDepth) {
-        return vec3(0.0f,0.0f,0.0f);
-    }
-    Intersection paylod = bvhTraverse(ray);
-}
 
-in vec2 texCoord;
-out vec4 fragColor;
+Ray ray_queue[CAST_RAY_STACK_SIZE];
+int depth_queue[CAST_RAY_STACK_SIZE];
+vec3 factor_queue[CAST_RAY_STACK_SIZE];
+
+vec3 castRay(in Ray primaryRay) {
+    int start = 0;
+    int end = 1;
+
+    vec3 result = vec3(0.0f);
+    ray_queue[0] = primaryRay;
+    depth_queue[0] = 0;
+    factor_queue[0] = vec3(1.0f);
+
+    while(start < end) {
+        int depth = depth_queue[start%CAST_RAY_STACK_SIZE];
+        vec3 factor = factor_queue[start%CAST_RAY_STACK_SIZE];
+        Ray ray = ray_queue[start%CAST_RAY_STACK_SIZE];
+
+        ++start;
+        if (depth > maxDepth) {
+            continue;
+        }
+        Intersection payload = bvhTraverse(ray);
+
+        if (payload.intersects && payload.m.isDiffuse) {
+            float cos_i = dot(-ray.rd, payload.normal);
+
+            float theta_t;
+            float kr;
+            float n1 = 1.0f;
+            float n2 = payload.m.ior;
+            if (cos_i < 0) {
+                float temp = n1;
+                n1 = n2;
+                n2 = temp;
+            }
+            cos_i = abs(cos_i);
+            float theta_i = acos(cos_i);
+
+            snell(theta_i, theta_t, n1, n2);
+            fresnel(theta_i, theta_t, kr, n1, n2);
+
+            vec3 reflectDir = normalize(2.0f * cos_i * payload.normal + ray.rd);
+            vec3 refractDir = normalize(((n1/n2) * cos_i - cos(theta_t)) * payload.normal + 
+                (n1/n2) * ray.rd);
+
+            Ray reflectionRay = Ray(payload.position + 
+                ((dot(payload.normal, reflectDir) > 0)? payload.normal*EPSILON: 
+                -payload.normal*EPSILON), reflectDir);
+        
+            Ray refractionRay = Ray(payload.position + 
+                ((dot(payload.normal, refractDir) > 0)? payload.normal*EPSILON: 
+                -payload.normal*EPSILON), refractDir);
+
+            result += ambient * payload.m.kd;
+            
+            ray_queue[end%CAST_RAY_STACK_SIZE] = reflectionRay;
+            depth_queue[end%CAST_RAY_STACK_SIZE] = depth + 1;
+            factor_queue[end%CAST_RAY_STACK_SIZE] = factor*payload.m.ks*kr;
+            ++end;
+
+            ray_queue[end%CAST_RAY_STACK_SIZE] = refractionRay;
+            depth_queue[end%CAST_RAY_STACK_SIZE] = depth + 1;
+            factor_queue[end%CAST_RAY_STACK_SIZE] = factor*payload.m.ks*(1-kr);
+            ++end;
+        } else if (payload.intersects && !payload.m.isDiffuse) {
+            vec3 specular = vec3(0.0f);
+            vec3 diffuse = vec3(0.0f);
+
+
+            for (int i = 0; i < num_of_lights; ++i) {
+                LightNode light = light_node[i];
+                vec3 vectorToLight = light.position - payload.position;
+                float distanceToLight = length(vectorToLight);
+                vectorToLight = normalize(vectorToLight);
+
+                vec3 delta;
+                if (dot(payload.normal, vectorToLight) > 0) {
+                    delta = payload.normal * EPSILON;
+                } else {
+                    delta = -payload.normal * EPSILON;
+                }
+
+                Ray shadowRay = Ray(payload.position + delta, vectorToLight);
+                
+                Intersection collision = bvhTraverse(shadowRay);
+                // if no collision blocking the shadowRay, we add this light
+                if (!collision.intersects || collision.t > distanceToLight) {
+                    // std::cout << "light: " << to_string(light->colour) << std::endl;
+                    diffuse += max(dot(payload.normal, 
+                        vectorToLight),0.0f) * light.color;
+                    vec3 h = normalize(vectorToLight - ray.rd);
+                    specular += pow(max(dot(payload.normal, h), 0.0f), 
+                        payload.m.shininess) * light.color;
+                    
+                }
+                
+            }
+
+            result += factor * min(ambient + diffuse * payload.m.kd + 
+                specular * payload.m.ks, 1.0f);
+        }
+    }
+    
+    return min(result, 1.0f);
+}
 
 void main() {
     float w_size = tan(radians(fov));
@@ -1070,6 +1348,8 @@ void main() {
              (window_size.y*0.5f - gl_FragCoord.y)*w_ratio,
              -1.0f));
     Ray primaryRay = Ray(eyePos, dir);
-    fragColor = vec4(castRay(primaryRay, 0), 1.0f) + 
-        texture(bg_tex, texCoord);
+    fragColor = vec4(castRay(primaryRay), 1.0f);
+    if (length(fragColor) < EPSILON) {
+        fragColor = texture(bg_tex, texCoord);
+    }
 }

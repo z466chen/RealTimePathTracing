@@ -2,6 +2,7 @@
 #include <imgui/imgui.h>
 #include <lodepng/lodepng.h>
 #include <iostream>
+#include <glm/ext.hpp>
 #include "UboConstructor.hpp"
 #include "BVH.hpp"
 #include "cs488-framework/GlErrorCheck.hpp"
@@ -115,37 +116,64 @@ void A5::init_uniforms() {
 			m_rt_shader.getProgramObject(), "vert_tex");
 		uelem = glGetUniformLocation(
 			m_rt_shader.getProgramObject(), "elem_tex");
-		uperlin = glGetUniformLocation(
-			m_rt_shader.getProgramObject(), "perlin_tex");
 		ubvhTex = glGetUniformLocation(
 			m_rt_shader.getProgramObject(), "bvh_tex");
 		ubvhMeshTex = glGetUniformLocation(
 			m_rt_shader.getProgramObject(), "bvh_mesh_tex");
 
+		uperlin = glGetUniformBlockIndex(m_rt_shader.getProgramObject(), "PerlinNoise");
+		umat = glGetUniformBlockIndex(m_rt_shader.getProgramObject(), "Material");
+		ubvh = glGetUniformBlockIndex(m_rt_shader.getProgramObject(), "BVH");
+		ubvhMesh = glGetUniformBlockIndex(m_rt_shader.getProgramObject(), "BVHMesh");
+		ulight = glGetUniformBlockIndex(m_rt_shader.getProgramObject(), "Light");
+		ucamera = glGetUniformBlockIndex(m_rt_shader.getProgramObject(), "Camera");
+
 		glUniform1i(uobj, 0);
 		glUniform1i(uvert, 1);
 		glUniform1i(uelem, 2);
-		glUniform1i(uperlin, 3);
-		glUniform1i(ubvhTex, 4);
-		glUniform1i(ubvhMeshTex, 5);
+		glUniform1i(ubvhTex, 3);
+		glUniform1i(ubvhMeshTex, 4);
 
-		glUniformBlockBinding(m_rt_shader.getProgramObject(),  umat, 0);
-		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ubvh, 1);
-		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ubvhMesh, 2);
-		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ulight, 3);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  uperlin, 0);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  umat, 1);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ubvh, 2);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ubvhMesh, 3);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ulight, 4);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ucamera, 5);
 		
+		{
+			glGenBuffers(1, &m_camera);
+			glBindBuffer(GL_UNIFORM_BUFFER, m_camera);
+			glBufferData(GL_UNIFORM_BUFFER, 80, NULL, GL_STATIC_DRAW);
+			glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+			glBindBufferRange(GL_UNIFORM_BUFFER, 5, m_camera, 0, 80);
+
+			glBindBuffer(GL_UNIFORM_BUFFER, m_camera);
+
+			glBufferSubData(GL_UNIFORM_BUFFER, 0, 64, glm::value_ptr(camera.getViewMatrix()));
+			glBufferSubData(GL_UNIFORM_BUFFER, 64, 12, glm::value_ptr(camera.getCamEye()));
+			int fov = camera.getFov();
+			glBufferSubData(GL_UNIFORM_BUFFER, 76, 4, &fov);  
+			glBindBuffer(GL_UNIFORM_BUFFER, 0);        
+        }
+
 		UboConstructor::construct(
 			m_ubo_obj,
 			m_ubo_vert,
 			m_ubo_elem,
-			m_ubo_perlin,
 			m_ubo_bvh_tex,
 			m_ubo_bvh_mesh_tex,
+			m_ubo_perlin,
 			m_ubo_mat,
 			m_ubo_bvh,
 			m_ubo_bvh_mesh,
 			m_ubo_light
 		);
+
+		uambient = glGetUniformLocation(m_rt_shader.getProgramObject(), "ambient");
+		unol = glGetUniformLocation(m_rt_shader.getProgramObject(), "num_of_lights");
+		uwsize = glGetUniformLocation(m_rt_shader.getProgramObject(), "window_size");
 	m_rt_shader.disable();
 	CHECK_GL_ERRORS;
 }
@@ -204,15 +232,19 @@ void A5::draw() {
 		glUniform1i(uobj, 0);
 		glUniform1i(uvert, 1);
 		glUniform1i(uelem, 2);
-		glUniform1i(uperlin, 3);
-		glUniform1i(ubvhTex, 4);
-		glUniform1i(ubvhMeshTex, 5);
-		glUniform1i(ubackground, 6);
+		glUniform1i(ubvhTex, 3);
+		glUniform1i(ubvhMeshTex, 4);
+		glUniform1i(ubackground, 5);
 
-		glUniformBlockBinding(m_rt_shader.getProgramObject(),  umat, 0);
-		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ubvh, 1);
-		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ubvhMesh, 2);
-		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ulight, 3);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  uperlin, 0);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  umat, 1);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ubvh, 2);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ubvhMesh, 3);
+		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ulight, 4);
+
+		glUniform3fv(uambient, 1, glm::value_ptr(ambient));
+		glUniform1i(unol, UboConstructor::light_arr.size());
+		glUniform2f(uwsize,m_framebufferWidth, m_framebufferHeight);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, m_ubo_obj);
@@ -224,16 +256,27 @@ void A5::draw() {
 		glBindTexture(GL_TEXTURE_2D, m_ubo_elem);
 		
 		glActiveTexture(GL_TEXTURE3);
-		glBindTexture(GL_TEXTURE_2D, m_ubo_perlin);
-		
-		glActiveTexture(GL_TEXTURE4);
 		glBindTexture(GL_TEXTURE_2D, m_ubo_bvh_tex);
 		
-		glActiveTexture(GL_TEXTURE5);
+		glActiveTexture(GL_TEXTURE4);
 		glBindTexture(GL_TEXTURE_2D, m_ubo_bvh_mesh_tex);
 		
-		glActiveTexture(GL_TEXTURE6);
+		glActiveTexture(GL_TEXTURE5);
 		glBindTexture(GL_TEXTURE_2D, m_bg_texture);
+
+		glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_perlin);
+		glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_mat);
+		glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_bvh);
+		glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_bvh_mesh);
+		glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_light);
+
+		glBindBuffer(GL_UNIFORM_BUFFER, m_camera);
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, 64, glm::value_ptr(camera.getViewMatrix()));
+		glBufferSubData(GL_UNIFORM_BUFFER, 64, 12, glm::value_ptr(camera.getCamEye()));
+		int fov = camera.getFov();
+		glBufferSubData(GL_UNIFORM_BUFFER, 76, 4, &fov);  
+		glBindBuffer(GL_UNIFORM_BUFFER, 0); 
+
 
 		glBindVertexArray(m_vao_quad);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -335,13 +378,14 @@ A5::~A5() {
 	glDeleteTextures(1, &m_ubo_obj);
 	glDeleteTextures(1, &m_ubo_vert);
 	glDeleteTextures(1, &m_ubo_elem);
-	glDeleteTextures(1, &m_ubo_perlin);
 	glDeleteTextures(1, &m_ubo_bvh_tex);
 	glDeleteTextures(1, &m_ubo_bvh_mesh_tex);
 	glDeleteTextures(1, &m_bg_texture);
 	
+	glDeleteBuffers(1, &m_ubo_perlin);
 	glDeleteBuffers(1, &m_ubo_mat);
 	glDeleteBuffers(1, &m_ubo_bvh);
 	glDeleteBuffers(1, &m_ubo_bvh_mesh);
 	glDeleteBuffers(1, &m_ubo_light);
+
 }
