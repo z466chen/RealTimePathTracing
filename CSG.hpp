@@ -29,4 +29,6 @@ public:
     virtual Intersection intersect(const Ray &ray) const;
     
     virtual AABB getAABB() const;
+
+    virtual int construct() const;
 };

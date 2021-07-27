@@ -2,6 +2,7 @@
 
 #include "GeometryNode.hpp"
 #include <iostream>
+#include "UboConstructor.hpp"
 
 //---------------------------------------------------------------------------------------
 GeometryNode::GeometryNode(
@@ -48,4 +49,11 @@ Intersection GeometryNode::intersect(const Ray &ray) const {
 
 AABB GeometryNode::getAABB() const {
 	return m_primitive->getAABB();
+}
+
+int GeometryNode::construct() const {
+	int pid = m_primitive->construct();
+	int mid = m_material->construct();
+	UboConstructor::obj_arr[pid].mat_id = mid;
+	return pid;
 }

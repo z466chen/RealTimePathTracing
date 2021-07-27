@@ -59,7 +59,9 @@
 #include "Material.hpp"
 #include "PhongMaterial.hpp"
 #include "SolidMaterial.hpp"
-#include "A4.hpp"
+// #include "Scene.hpp"
+// #include "Renderer.hpp"
+#include "A5.hpp"
 
 typedef std::map<std::string,Mesh*> MeshMap;
 static MeshMap mesh_map;
@@ -362,7 +364,7 @@ int gr_mesh_cmd(lua_State* L)
 	Mesh *mesh = nullptr;
 
 	if( i == mesh_map.end() ) {
-		mesh = new Mesh(obj_fname);
+		mesh = new Mesh("./Assets/" + std::string(obj_fname));
 		mesh_map[sfname] = mesh;
 	} else {
 		mesh = i->second;
@@ -445,151 +447,151 @@ int gr_render_cmd(lua_State* L)
   }
 
 	
-  A4_Scene scene(root->node, eye, view, up, fov, ambient, lights);
+  A5::window = new A5(root->node, eye, view, up, fov, ambient, lights);
 
-  #ifdef ANTI_ALIASING
-  // No sampler
-  {
-    std::string prefix = "result/Single_";
+  // #ifdef ANTI_ALIASING
+  // // No sampler
+  // {
+  //   std::string prefix = "result/Single_";
     
-    A4_Canvas canvas(width, height, SamplerType::SINGLE);
+  //   Renderer canvas(width, height, SamplerType::SINGLE);
 
-    auto start = std::chrono::system_clock::now();
-    canvas.render(scene);
-    auto stop = std::chrono::system_clock::now();
+  //   auto start = std::chrono::system_clock::now();
+  //   canvas.render(scene);
+  //   auto stop = std::chrono::system_clock::now();
 
-    std::cout << "Render complete: \n";
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
+  //   std::cout << "Render complete: \n";
+  //   std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
-    canvas.image.savePng( (prefix + filename).c_str() );
-  }
+  //   canvas.image.savePng( (prefix + filename).c_str() );
+  // }
 
-  // Grid sampler
-  {
-    std::string prefix = "result/Grid_";
+  // // Grid sampler
+  // {
+  //   std::string prefix = "result/Grid_";
     
-    A4_Canvas canvas(width, height, SamplerType::SS_GRID);
+  //   Renderer canvas(width, height, SamplerType::SS_GRID);
 
-    auto start = std::chrono::system_clock::now();
-    canvas.render(scene);
-    auto stop = std::chrono::system_clock::now();
+  //   auto start = std::chrono::system_clock::now();
+  //   canvas.render(scene);
+  //   auto stop = std::chrono::system_clock::now();
 
-    std::cout << prefix << ": \n";
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
+  //   std::cout << prefix << ": \n";
+  //   std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
-    canvas.image.savePng( (prefix + filename).c_str() );
-  }
+  //   canvas.image.savePng( (prefix + filename).c_str() );
+  // }
 
-  // Jitter sampler
-  {
-    std::string prefix = "result/Jitter_";
+  // // Jitter sampler
+  // {
+  //   std::string prefix = "result/Jitter_";
     
-    A4_Canvas canvas(width, height, SamplerType::SS_JITTER);
+  //   Renderer canvas(width, height, SamplerType::SS_JITTER);
 
-    auto start = std::chrono::system_clock::now();
-    canvas.render(scene);
-    auto stop = std::chrono::system_clock::now();
+  //   auto start = std::chrono::system_clock::now();
+  //   canvas.render(scene);
+  //   auto stop = std::chrono::system_clock::now();
 
-    std::cout << prefix << ": \n";
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
+  //   std::cout << prefix << ": \n";
+  //   std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
-    canvas.image.savePng( (prefix + filename).c_str() );
-  }
+  //   canvas.image.savePng( (prefix + filename).c_str() );
+  // }
 
-  // Quincunx sampler
-  {
-    std::string prefix = "result/Quincunx_";
+  // // Quincunx sampler
+  // {
+  //   std::string prefix = "result/Quincunx_";
     
-    A4_Canvas canvas(width, height, SamplerType::SS_QUINCUNX);
+  //   Renderer canvas(width, height, SamplerType::SS_QUINCUNX);
 
-    auto start = std::chrono::system_clock::now();
-    canvas.render(scene);
-    auto stop = std::chrono::system_clock::now();
+  //   auto start = std::chrono::system_clock::now();
+  //   canvas.render(scene);
+  //   auto stop = std::chrono::system_clock::now();
 
-    std::cout << prefix << ": \n";
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
+  //   std::cout << prefix << ": \n";
+  //   std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
-    canvas.image.savePng( (prefix + filename).c_str() );
-  }
+  //   canvas.image.savePng( (prefix + filename).c_str() );
+  // }
 
-  // Random sampler
-  {
-    std::string prefix = "result/Random_";
+  // // Random sampler
+  // {
+  //   std::string prefix = "result/Random_";
     
-    A4_Canvas canvas(width, height, SamplerType::SS_RANDOM);
+  //   Renderer canvas(width, height, SamplerType::SS_RANDOM);
 
-    auto start = std::chrono::system_clock::now();
-    canvas.render(scene);
-    auto stop = std::chrono::system_clock::now();
+  //   auto start = std::chrono::system_clock::now();
+  //   canvas.render(scene);
+  //   auto stop = std::chrono::system_clock::now();
 
-    std::cout << prefix << ": \n";
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
+  //   std::cout << prefix << ": \n";
+  //   std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
-    canvas.image.savePng( (prefix + filename).c_str() );
-  }
+  //   canvas.image.savePng( (prefix + filename).c_str() );
+  // }
 
-  // Random sampler
-  {
-    std::string prefix = "result/RotatedGrid_";
+  // // Random sampler
+  // {
+  //   std::string prefix = "result/RotatedGrid_";
     
-    A4_Canvas canvas(width, height, SamplerType::SS_RG);
+  //   Renderer canvas(width, height, SamplerType::SS_RG);
 
-    auto start = std::chrono::system_clock::now();
-    canvas.render(scene);
-    auto stop = std::chrono::system_clock::now();
+  //   auto start = std::chrono::system_clock::now();
+  //   canvas.render(scene);
+  //   auto stop = std::chrono::system_clock::now();
 
-    std::cout << prefix << ": \n";
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
+  //   std::cout << prefix << ": \n";
+  //   std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
-    canvas.image.savePng( (prefix + filename).c_str() );
-  }  
+  //   canvas.image.savePng( (prefix + filename).c_str() );
+  // }  
 
-  // Random sampler
-  {
-    std::string prefix = "result/QMC_";
+  // // Random sampler
+  // {
+  //   std::string prefix = "result/QMC_";
     
-    A4_Canvas canvas(width, height, SamplerType::SS_QMC);
+  //   Renderer canvas(width, height, SamplerType::SS_QMC);
 
-    auto start = std::chrono::system_clock::now();
-    canvas.render(scene);
-    auto stop = std::chrono::system_clock::now();
+  //   auto start = std::chrono::system_clock::now();
+  //   canvas.render(scene);
+  //   auto stop = std::chrono::system_clock::now();
 
-    std::cout << prefix << ": \n";
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
+  //   std::cout << prefix << ": \n";
+  //   std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
-    canvas.image.savePng( (prefix + filename).c_str() );
-  }  
-  #else 
-  {
+  //   canvas.image.savePng( (prefix + filename).c_str() );
+  // }  
+  // #else 
+  // {
     
-    A4_Canvas canvas(width, height, SamplerType::SINGLE);
+  //   Renderer canvas(width, height, SamplerType::SINGLE);
 
-    auto start = std::chrono::system_clock::now();
-    canvas.render(scene);
-    auto stop = std::chrono::system_clock::now();
+  //   auto start = std::chrono::system_clock::now();
+  //   canvas.render(scene);
+  //   auto stop = std::chrono::system_clock::now();
 
-    std::cout << "Render complete: \n";
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
-    std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
+  //   std::cout << "Render complete: \n";
+  //   std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::hours>(stop - start).count() << " hours\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::minutes>(stop - start).count() << " minutes\n";
+  //   std::cout << "          : " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n";
 
-    canvas.image.savePng(filename);
-  }
-  #endif
+  //   canvas.image.savePng(filename);
+  // }
+  // #endif
 
 	return 0;
 }
@@ -854,7 +856,8 @@ static const luaL_Reg grlib_node_methods[] = {
 // raytrace it as appropriate.
 bool run_lua(const std::string& filename)
 {
-  GRLUA_DEBUG("Importing scene from " << filename);
+  std::string real_file_name = "./Assets/" + filename;
+  GRLUA_DEBUG("Importing scene from " << real_file_name);
   
   // Start a lua interpreter
   lua_State* L = luaL_newstate();
@@ -881,8 +884,8 @@ bool run_lua(const std::string& filename)
 
   GRLUA_DEBUG("Parsing the scene...");
   // Now parse the actual scene
-  if (luaL_loadfile(L, filename.c_str()) || lua_pcall(L, 0, 0, 0)) {
-    std::cerr << "Error loading " << filename << ": " << lua_tostring(L, -1) << std::endl;
+  if (luaL_loadfile(L,  real_file_name.c_str()) || lua_pcall(L, 0, 0, 0)) {
+    std::cerr << "Error loading " << real_file_name << ": " << lua_tostring(L, -1) << std::endl;
     return false;
   }
   GRLUA_DEBUG("Closing the interpreter");

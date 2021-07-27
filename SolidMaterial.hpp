@@ -14,8 +14,10 @@ public:
 
   double m_shininess;
   double m_turb_power;
+  int id;
 
-  std::shared_ptr<MaterialInfo> getMaterialInfo(const glm::vec3 &t, 
+  virtual std::shared_ptr<MaterialInfo> getMaterialInfo(const glm::vec3 &t, 
     const Primitive * primitive) const;
+  virtual int construct() const;
 private:
 };

@@ -11,4 +11,5 @@ public:
     virtual ~Object() {};
     virtual Intersection intersect(const Ray &ray) const = 0;
     virtual AABB getAABB() const = 0;
+    virtual int construct() const = 0;
 };

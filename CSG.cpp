@@ -2,6 +2,7 @@
 #include <glm/ext.hpp>
 #include <queue>
 #include "general.hpp"
+#include "UboConstructor.hpp"
 
 CSGNode::CSGNode(const std::string & name, CSGNodeType operation): 
     GeometryNode(name, nullptr, nullptr) {
@@ -150,8 +151,10 @@ void CSGNode::init() {
         auto current_inv_trans_matrix = node->invtrans*node_and_matrix.second.second;
         q.pop();
 
-        node->t_matrix = current_trans_matrix;
-        node->inv_t_matrix = current_inv_trans_matrix;
+        if (node->children.empty()) {
+            node->t_matrix = current_trans_matrix;
+            node->inv_t_matrix = current_inv_trans_matrix;
+        }
 
         for (auto child: node->children) { 
             q.emplace(child, std::make_pair(current_trans_matrix, current_inv_trans_matrix));
@@ -210,4 +213,42 @@ AABB CSGNode::getAABB() const {
         }
     }
     return result;
+}
+
+int CSGNode::construct() const {
+    int id = UboConstructor::obj_arr.size();
+    UboConstructor::obj_arr.emplace_back(UboObject());
+    auto &ubo_obj = UboConstructor::obj_arr.back();
+    ubo_obj.mat_id = -1;
+
+    ubo_obj.t_matrix = t_matrix;
+    ubo_obj.inv_t_matrix = inv_t_matrix;
+
+    int left = -1;
+    int right = -1;
+    AABB bbox;
+    
+    left = children.front()->construct();
+    right = children.back()->construct();
+
+    AABB leftbox;
+    auto leftnode = UboConstructor::obj_arr[left];
+    leftbox.lower_bound = glm::vec3(leftnode.obj_aabb_1, leftnode.obj_aabb_2.x);
+    leftbox.upper_bound = glm::vec3(leftnode.obj_aabb_2.y, leftnode.obj_aabb_3);
+
+    AABB rightbox;        
+    auto rightnode = UboConstructor::obj_arr[right];
+    rightbox.lower_bound = glm::vec3(rightnode.obj_aabb_1, rightnode.obj_aabb_2.x);
+    rightbox.upper_bound = glm::vec3(rightnode.obj_aabb_2.y, rightnode.obj_aabb_3);
+
+    bbox = leftbox.transform(leftnode.t_matrix) + rightbox.transform(rightnode.t_matrix);
+
+    ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y);
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x);
+    ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z);
+
+    ubo_obj.obj_data_1 = glm::vec2(left, right);
+    ubo_obj.obj_data_2 = glm::vec2((int)operation, 0.0f);
+    ubo_obj.obj_type = (int)UboPrimitiveType::CSG;
+    return id;
 }

@@ -45,6 +45,7 @@ public:
     // return intersection payload of given ray
     virtual Intersection intersect(const Ray &ray) const { return Intersection(); }
     virtual AABB getAABB() const { return AABB(); }
+    virtual int construct() const { return -1; }
 
 	friend std::ostream & operator << (std::ostream & os, const SceneNode & node);
 

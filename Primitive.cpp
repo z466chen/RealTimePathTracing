@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <glm/ext.hpp>
 #include "general.hpp"
-
+#include "UboConstructor.hpp"
 
 const NonhierSphere Sphere::content = NonhierSphere(glm::vec3(0,0,0), 1.0f);
 const NonhierBox Cube::content = NonhierBox(glm::vec3(0,0,0), 1.0f);
@@ -58,6 +58,22 @@ AABB NonhierSphere::getAABB() const {
     result.lower_bound = m_pos - glm::vec3(m_radius, m_radius, m_radius);
     result.upper_bound = m_pos + glm::vec3(m_radius, m_radius, m_radius);
     return result;
+}
+
+int NonhierSphere::construct() const {
+    int id = UboConstructor::obj_arr.size();
+    UboConstructor::obj_arr.emplace_back(UboObject());
+    auto &ubo_obj = UboConstructor::obj_arr.back();
+    
+    AABB bbox = getAABB();
+    ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
+    
+    ubo_obj.obj_data_1 = glm::vec2(m_pos.x, m_pos.y);
+    ubo_obj.obj_data_2 = glm::vec2(m_pos.z, m_radius);
+    ubo_obj.obj_type = (int)UboPrimitiveType::SPHERE;
+    return id;
 }
 
 NonhierSphere::~NonhierSphere()
@@ -157,16 +173,31 @@ AABB NonhierBox::getAABB() const {
     return result;
 }
 
-Intersection Sphere::intersect(const Ray &ray) const {
-    Intersection result = content.intersect(ray);
-    // result.obj = this;
-    return result;
+int NonhierBox::construct() const {
+    int id = UboConstructor::obj_arr.size();
+    UboConstructor::obj_arr.emplace_back(UboObject());
+    auto &ubo_obj = UboConstructor::obj_arr.back();
+    
+    AABB bbox = getAABB();
+    ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
+    
+    ubo_obj.obj_data_1 = glm::vec2(m_pos.x, m_pos.y);
+    ubo_obj.obj_data_2 = glm::vec2(m_pos.z, m_size);
+    ubo_obj.obj_type = (int)UboPrimitiveType::BOX;
+    return id;
 }
 
 NonhierBox::~NonhierBox()
 {
 }
 
+Intersection Sphere::intersect(const Ray &ray) const {
+    Intersection result = content.intersect(ray);
+    // result.obj = this;
+    return result;
+}
 
 double Sphere::sdf(const glm::vec3 &t) const {
     return content.sdf(t);
@@ -176,14 +207,18 @@ AABB Sphere::getAABB() const {
     return content.getAABB();
 }
 
-Intersection Cube::intersect(const Ray &ray) const {
-    Intersection result = content.intersect(ray);
-    // result.obj = this;
-    return result;
+int Sphere::construct() const {
+    return content.construct();
 }
 
 Sphere::~Sphere()
 {
+}
+
+Intersection Cube::intersect(const Ray &ray) const {
+    Intersection result = content.intersect(ray);
+    // result.obj = this;
+    return result;
 }
 
 double Cube::sdf(const glm::vec3 &t) const {
@@ -194,12 +229,15 @@ AABB Cube::getAABB() const {
     return content.getAABB();
 } 
 
+int Cube::construct() const {
+    return content.construct();
+}
+
 Cube::~Cube()
 {
 }
 
 RoundBox::RoundBox(const glm::vec3 &size, float radius):size{size},radius{radius} {}
-
 
 Intersection RoundBox::intersect(const Ray &ray) const {
     Intersection result;
@@ -320,6 +358,22 @@ AABB RoundBox::getAABB() const {
     return result;
 }
 
+int RoundBox::construct() const {
+    int id = UboConstructor::obj_arr.size();
+    UboConstructor::obj_arr.emplace_back(UboObject());
+    auto &ubo_obj = UboConstructor::obj_arr.back();
+    
+    AABB bbox = getAABB();
+    ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
+    
+    ubo_obj.obj_data_1 = glm::vec2(size.x, size.y);
+    ubo_obj.obj_data_2 = glm::vec2(size.z, radius);
+    ubo_obj.obj_type = (int)UboPrimitiveType::ROUNDBOX;
+    return id;
+}
+
 RoundBox::~RoundBox() {
 
 }
@@ -435,6 +489,21 @@ AABB Cylinder::getAABB() const {
     return result;
 }
 
+int Cylinder::construct() const {
+    int id = UboConstructor::obj_arr.size();
+    UboConstructor::obj_arr.emplace_back(UboObject());
+    auto &ubo_obj = UboConstructor::obj_arr.back();
+    
+    AABB bbox = getAABB();
+    ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
+    
+    ubo_obj.obj_data_1 = glm::vec2(radius, height);
+    ubo_obj.obj_type = (int)UboPrimitiveType::CYLINDER;
+    return id;
+}
+
 Cylinder::~Cylinder() {
 
 }
@@ -544,6 +613,21 @@ AABB Torus::getAABB() const {
     result.upper_bound = glm::vec3(parameters.x + parameters.y, parameters.x + parameters.y, 
         parameters.y);
     return result;
+}
+
+int Torus::construct() const {
+    int id = UboConstructor::obj_arr.size();
+    UboConstructor::obj_arr.emplace_back(UboObject());
+    auto &ubo_obj = UboConstructor::obj_arr.back();
+    
+    AABB bbox = getAABB();
+    ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
+    
+    ubo_obj.obj_data_1 = parameters;
+    ubo_obj.obj_type = (int)UboPrimitiveType::TORUS;
+    return id;
 }
 
 Torus::~Torus() {

@@ -18,7 +18,11 @@ public:
 
   double m_shininess;
 
-  std::shared_ptr<MaterialInfo> getMaterialInfo(const glm::vec3 &t, 
+  int id;
+
+  virtual std::shared_ptr<MaterialInfo> getMaterialInfo(const glm::vec3 &t, 
     const Primitive * primitive) const;
+
+  virtual int construct() const;
 private:
 };

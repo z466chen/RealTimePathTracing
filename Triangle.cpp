@@ -1,5 +1,6 @@
 #include "Triangle.hpp"
 #include "general.hpp"
+#include "UboConstructor.hpp"
 
 Intersection Triangle::intersect(const Ray &ray) const {
 	Intersection result;
@@ -56,4 +57,14 @@ AABB Triangle::getAABB() const {
 	result.lower_bound = vec_min(*v1, vec_min(*v2, *v3));
 	result.upper_bound = vec_max(*v1, vec_max(*v2, *v3));
 	return result;
+}
+
+int Triangle::construct() const {
+	int id = UboConstructor::elem_arr.size();
+	UboConstructor::elem_arr.emplace_back(UboElement());
+	auto & ubo_elem = UboConstructor::elem_arr.back();
+	ubo_elem.v1 = i1;
+	ubo_elem.v2 = i2;
+	ubo_elem.v3 = i3;
+	return id;
 }

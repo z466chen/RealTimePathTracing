@@ -1,5 +1,6 @@
 #include "PerlinNoiseGenerator.hpp"
 #include "general.hpp"
+#include "UboConstructor.hpp"
 #include <iostream>
 
 #define s_curve(t) ( t * t * (3. - 2. * t) )
@@ -20,6 +21,12 @@ glm::vec3 PerlinNoiseGenerator::g3[B+B+2] = {};
 PerlinNoiseGenerator::PerlinNoiseGenerator() {
     if (!isInitialized) {
         __init();
+		for (int i = 0; i < B+B+2; ++i) {
+			UboConstructor::perlin_arr.emplace_back(UboPerlinNoise());
+			auto &ubo_perlin = UboConstructor::perlin_arr.back();
+			ubo_perlin.p = p[i];
+			ubo_perlin.g = g3[i];
+		}
         isInitialized = true;
     } 
 }

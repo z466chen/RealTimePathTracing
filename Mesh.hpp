@@ -26,11 +26,13 @@ public:
   virtual Intersection intersect(const Ray &ray) const;
   virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
+  virtual int construct() const;
   virtual ~Mesh();
 private:
 	std::vector<glm::vec3> m_vertices;
 	std::vector<Triangle> m_faces;
 	std::unique_ptr<BVH> bvh;
+  int vertex_offset;
 
-    friend std::ostream& operator<<(std::ostream& out, const Mesh& mesh);
+  friend std::ostream& operator<<(std::ostream& out, const Mesh& mesh);
 };

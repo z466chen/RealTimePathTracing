@@ -9,6 +9,7 @@
 #include "Mesh.hpp"
 #include "defines.hpp"
 #include "general.hpp"
+#include "UboConstructor.hpp"
 
 Mesh::Mesh( const std::string& fname )
 	: m_vertices()
@@ -22,15 +23,22 @@ Mesh::Mesh( const std::string& fname )
 
 
 	std::ifstream ifs( fname.c_str() );
+
+	vertex_offset = UboConstructor::vert_arr.size();
+
 	while( ifs >> code ) {
 		if( code == "v" ) {
 			ifs >> vx >> vy >> vz;
 			m_vertices.push_back( glm::vec3( vx, vy, vz ) );
+			UboConstructor::vert_arr.push_back(UboVertex());
+			UboConstructor::vert_arr.back().pos = glm::vec3(vx, vy, vz);
 		} else if( code == "f" ) {
 			ifs >> s1 >> s2 >> s3;
-			m_faces.push_back( Triangle( &(*(m_vertices.begin() + (s1 - 1))), 
+			m_faces.push_back( Triangle(
+				&(*(m_vertices.begin() + (s1 - 1))), 
 				&(*(m_vertices.begin() + (s2 - 1))), 
-				&(*(m_vertices.begin() + (s3 - 1)))));
+				&(*(m_vertices.begin() + (s3 - 1))), 
+				s1-1, s2-1, s3-1));
 		}
 	}
 
@@ -75,6 +83,22 @@ Intersection Mesh::intersect(const Ray &ray) const {
 
 AABB Mesh::getAABB() const {
 	return bvh->getAABB();
+}
+
+int Mesh::construct() const {
+    int id = UboConstructor::obj_arr.size();
+    UboConstructor::obj_arr.emplace_back(UboObject());
+    auto &ubo_obj = UboConstructor::obj_arr.back();
+    
+    AABB bbox = getAABB();
+    ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
+    
+	int bvh_id = bvh->construct();
+    ubo_obj.obj_data_1 = glm::vec2(bvh_id, vertex_offset);
+    ubo_obj.obj_type = (int)UboPrimitiveType::MESH;
+    return id;
 }
 
 Mesh::~Mesh() {}

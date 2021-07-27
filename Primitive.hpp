@@ -11,6 +11,7 @@ public:
   virtual Intersection intersect(const Ray &ray) const { return Intersection(); };
   virtual double sdf(const glm::vec3 &t) const { return std::numeric_limits<double>::max();}; 
   virtual AABB getAABB() const { return AABB(); };
+  virtual int construct() const { return -1; }
   virtual ~Primitive();
 };
 
@@ -24,6 +25,7 @@ public:
   virtual Intersection intersect(const Ray &ray) const;
   virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
+  virtual int construct() const;
   virtual ~NonhierSphere();
 private:
   glm::vec3 m_pos;
@@ -40,6 +42,7 @@ public:
   virtual Intersection intersect(const Ray &ray) const;
   virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
+  virtual int construct() const;
   virtual ~NonhierBox();
 
 private:
@@ -53,6 +56,7 @@ public:
   virtual Intersection intersect(const Ray &ray) const;
   virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
+  virtual int construct() const;
   virtual ~Sphere();
 };
 
@@ -62,6 +66,7 @@ public:
   virtual Intersection intersect(const Ray &ray) const;
   virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
+  virtual int construct() const;
   virtual ~Cube();
 };
 
@@ -74,6 +79,7 @@ public:
   virtual Intersection intersect(const Ray &ray) const;
   virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
+  virtual int construct() const;
   virtual ~RoundBox();
 };
 
@@ -86,6 +92,7 @@ public:
   virtual Intersection intersect(const Ray &ray) const;
   virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
+  virtual int construct() const;
   virtual ~Cylinder();
 };
 
@@ -98,5 +105,6 @@ public:
   virtual Intersection intersect(const Ray &ray) const;
   virtual double sdf(const glm::vec3 &t) const;
   virtual AABB getAABB() const;
+  virtual int construct() const;
   virtual ~Torus();
 };

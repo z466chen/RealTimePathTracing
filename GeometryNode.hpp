@@ -19,7 +19,8 @@ public:
 	Primitive *m_primitive;
 
 	std::shared_ptr<MaterialInfo> getMaterialInfo(const glm::vec3 &t) const;
-	virtual Intersection intersect(const Ray &ray) const;
+	virtual Intersection intersect(const Ray &ray) const ;
 
 	virtual AABB getAABB() const;
+	virtual int construct() const;
 };

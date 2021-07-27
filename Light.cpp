@@ -6,6 +6,8 @@
 
 #include "Light.hpp"
 
+#include "UboConstructor.hpp"
+
 Light::Light()
   : colour(0.0, 0.0, 0.0),
     position(0.0, 0.0, 0.0)
@@ -25,4 +27,14 @@ std::ostream& operator<<(std::ostream& out, const Light& l)
   }
   out << "]";
   return out;
+}
+
+int Light::construct() const {
+  int id = UboConstructor::light_arr.size();
+  UboConstructor::light_arr.emplace_back(UboLight());
+  auto &ubo_light = UboConstructor::light_arr.back();
+  ubo_light.color = colour;
+  ubo_light.position = position;
+  ubo_light.falloff = glm::vec3(falloff[0],falloff[1],falloff[2]);
+  return id;
 }
