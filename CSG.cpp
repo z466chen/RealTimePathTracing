@@ -47,11 +47,11 @@ std::shared_ptr<MaterialInfo> CSGNode::__getMatInfoWithDistance(const glm::vec3 
         leftInfo = static_cast<CSGNode *>(leftNode)->__getMatInfoWithDistance(t, dst, shouldCalcColor);
     } else {
         GeometryNode *leftNodeReal = static_cast<GeometryNode *>(leftNode);
-        glm::vec3 trans_t =  ptrans(leftNodeReal->inv_t_matrix, t);
+        glm::vec3 trans_t =  ptrans((*t_matrices.begin()).second, t);
         // std::cout << glm::to_string(t) << " " << glm::to_string(trans_t) << std::endl;
         dst = leftNodeReal->m_primitive->sdf(trans_t);
         if (shouldCalcColor) {
-            leftInfo = leftNodeReal->getMaterialInfo(t);
+            leftInfo = leftNodeReal->getMaterialInfo(trans_t);
         }
     }
     
@@ -63,7 +63,7 @@ std::shared_ptr<MaterialInfo> CSGNode::__getMatInfoWithDistance(const glm::vec3 
         rightInfo = static_cast<CSGNode *>(rightNode)->__getMatInfoWithDistance(t, right,shouldCalcColor);
     } else {
         GeometryNode *rightNodeReal = static_cast<GeometryNode *>(rightNode);
-        glm::vec3 trans_t = ptrans(rightNodeReal->inv_t_matrix, t); 
+        glm::vec3 trans_t = ptrans((*(++t_matrices.begin())).second, t); 
         right = rightNodeReal->m_primitive->sdf(trans_t);
         if (shouldCalcColor) {
             rightInfo = rightNodeReal->getMaterialInfo(t);
@@ -134,13 +134,12 @@ glm::vec3 CSGNode::__estimateNormal(const glm::vec3 &t) const {
 }
 
 void CSGNode::init() {
-    this->t_matrix = trans;
-    this->inv_t_matrix = invtrans;
 
     std::queue<std::pair<SceneNode *, std::pair<glm::mat4, glm::mat4>>> q;
     // q.emplace(this, std::make_pair(glm::mat4(1.0f), glm::mat4(1.0f)));
 
     for (auto child: this->children) { 
+        t_matrices.emplace_back(child->trans, child->invtrans); 
         q.emplace(child, std::make_pair(glm::mat4(1.0f), glm::mat4(1.0f)));
     }
 
@@ -151,12 +150,12 @@ void CSGNode::init() {
         auto current_inv_trans_matrix = node->invtrans*node_and_matrix.second.second;
         q.pop();
 
-        if (node->children.empty()) {
-            node->t_matrix = current_trans_matrix;
-            node->inv_t_matrix = current_inv_trans_matrix;
-        }
-
-        for (auto child: node->children) { 
+        for (auto child: node->children) {
+            if (node->m_nodeType == NodeType::CSGNode) {
+                static_cast<CSGNode *>(node)->t_matrices.emplace_back(current_trans_matrix*child->trans, 
+                    child->invtrans*current_inv_trans_matrix); 
+            }
+            
             q.emplace(child, std::make_pair(current_trans_matrix, current_inv_trans_matrix));
         }
     }
@@ -197,20 +196,22 @@ AABB CSGNode::getAABB() const {
     auto node = (*children.begin());
     AABB result;
     if (node->m_nodeType == NodeType::GeometryNode) {
-        result = node->getAABB().transform(node->t_matrix);
+        result = node->getAABB().transform((*t_matrices.begin()).first);
     //     std::cout << glm::to_string(result.lower_bound) << glm::to_string(node->getAABB().lower_bound) << std::endl;
     } else {
         result = node->getAABB();
     }
       
     // std::cout << "next name:" << (*children.begin())->m_name << std::endl;
+    int j = 1;
     for (auto i = ++children.begin(); i != children.end(); ++i) {
         node = *i;
         if (node->m_nodeType == NodeType::GeometryNode) {
-            result = result + node->getAABB().transform(node->t_matrix);
+            result = result + node->getAABB().transform(t_matrices[j].first);
         } else {
             result = result + node->getAABB();
         }
+        ++j;
     }
     return result;
 }
@@ -218,18 +219,22 @@ AABB CSGNode::getAABB() const {
 int CSGNode::construct() const {
     int id = UboConstructor::obj_arr.size();
     UboConstructor::obj_arr.emplace_back(UboObject());
-    auto &ubo_obj = UboConstructor::obj_arr.back();
-    ubo_obj.mat_id = -1;
-
-    ubo_obj.t_matrix = t_matrix;
-    ubo_obj.inv_t_matrix = inv_t_matrix;
+    UboConstructor::obj_arr[id].mat_id = -1;
 
     int left = -1;
     int right = -1;
     AABB bbox;
     
     left = children.front()->construct();
+    if (children.front()->m_nodeType != NodeType::CSGNode) {
+        UboConstructor::obj_arr[left].t_matrix = t_matrices[0].first;
+        UboConstructor::obj_arr[left].inv_t_matrix = t_matrices[0].second;
+    }
     right = children.back()->construct();
+    if (children.back()->m_nodeType != NodeType::CSGNode) {
+        UboConstructor::obj_arr[right].t_matrix = t_matrices[1].first;
+        UboConstructor::obj_arr[right].inv_t_matrix = t_matrices[1].second;
+    }
 
     AABB leftbox;
     auto leftnode = UboConstructor::obj_arr[left];
@@ -243,12 +248,12 @@ int CSGNode::construct() const {
 
     bbox = leftbox.transform(leftnode.t_matrix) + rightbox.transform(rightnode.t_matrix);
 
-    ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y);
-    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x);
-    ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z);
+    UboConstructor::obj_arr[id].obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y);
+    UboConstructor::obj_arr[id].obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x);
+    UboConstructor::obj_arr[id].obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z);
 
-    ubo_obj.obj_data_1 = glm::vec2(left, right);
-    ubo_obj.obj_data_2 = glm::vec2((int)operation, 0.0f);
-    ubo_obj.obj_type = (int)UboPrimitiveType::CSG;
+    UboConstructor::obj_arr[id].obj_data_1 = glm::vec2(left, right);
+    UboConstructor::obj_arr[id].obj_data_2 = glm::vec2((int)operation, 0.0f);
+    UboConstructor::obj_arr[id].obj_type = (int)UboPrimitiveType::CSG;
     return id;
 }

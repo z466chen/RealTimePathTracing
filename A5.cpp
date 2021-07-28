@@ -5,9 +5,12 @@
 #include <glm/ext.hpp>
 #include "UboConstructor.hpp"
 #include "BVH.hpp"
+#include "general.hpp"
+#include <fstream>
+
 #include "cs488-framework/GlErrorCheck.hpp"
 
-const float CAMERA_TRANSLATION_SPEED = 20.0f;
+const float CAMERA_TRANSLATION_SPEED = 200.0f;
 const float CAMERA_ROTATE_SPEED = 9.0f;
 
 CS488Window * A5::window = nullptr;
@@ -43,12 +46,28 @@ A5::A5(SceneNode *root,
 }
 
 void A5::init_shaders() {
+	UboConstructor::calcDefines();
 	m_rt_shader.generateProgramObject();
+
+	std::string frag_shader_src;
+	frag_shader_src = readFile(getAssetFilePath("shaders/RayTrace.fs"));
+	
+	replace(frag_shader_src, "{OBJ_TEXTURE_SIZE}", std::to_string(UboConstructor::defines.obj_texture_size));
+	replace(frag_shader_src, "{VERT_TEXTURE_SIZE}", std::to_string(UboConstructor::defines.vert_texture_size));
+	replace(frag_shader_src, "{ELEM_TEXTURE_SIZE}", std::to_string(UboConstructor::defines.elem_texture_size));
+	replace(frag_shader_src, "{BVH_TEXTURE_SIZE}", std::to_string(UboConstructor::defines.bvh_texture_size));
+	replace(frag_shader_src, "{BVH_MESH_TEXTURE_SIZE}", std::to_string(UboConstructor::defines.bvh_mesh_texture_size));
+
+	std::ofstream ofs;
+	ofs.open (getAssetFilePath("shaders/temp.fs"), std::ofstream::out);
+	ofs << frag_shader_src;
+	ofs.close();
+
 	m_rt_shader.attachVertexShader(
 		getAssetFilePath("shaders/Default.vs").c_str()
 	);
     m_rt_shader.attachFragmentShader(
-        getAssetFilePath("shaders/RayTrace.fs").c_str()
+        getAssetFilePath("shaders/temp.fs").c_str()
     );
 
     m_rt_shader.link();
@@ -92,9 +111,9 @@ void A5::init_textures() {
 	m_rt_shader.enable();
 		ubackground = glGetUniformLocation(
 			m_rt_shader.getProgramObject(), "bg_tex");
-		glUniform1i(ubackground, 6);
+		glUniform1i(ubackground, 5);
 		
-		glActiveTexture(GL_TEXTURE6);
+		glActiveTexture(GL_TEXTURE5);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -174,6 +193,8 @@ void A5::init_uniforms() {
 		uambient = glGetUniformLocation(m_rt_shader.getProgramObject(), "ambient");
 		unol = glGetUniformLocation(m_rt_shader.getProgramObject(), "num_of_lights");
 		uwsize = glGetUniformLocation(m_rt_shader.getProgramObject(), "window_size");
+		uinitialized = glGetUniformLocation(m_rt_shader.getProgramObject(), "initialized");
+		// glUniform1i(uinitialized, true);
 	m_rt_shader.disable();
 	CHECK_GL_ERRORS;
 }
@@ -189,6 +210,18 @@ void A5::init() {
 
 void A5::appLogic()
 {
+
+	float dtime = glfwGetTime() - state.prev_time_app;
+	float delta = dtime * CAMERA_TRANSLATION_SPEED;
+	if (glfwGetKey(m_window, GLFW_KEY_W) == GLFW_PRESS) {
+		camera.translate(Camera::TRANSLATION::FORWARD, delta);
+	} else if (glfwGetKey(m_window, GLFW_KEY_A) == GLFW_PRESS) {
+		camera.translate(Camera::TRANSLATION::LEFT, delta);
+	} else if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS) {
+		camera.translate(Camera::TRANSLATION::BACKWARD, delta);
+	} else if (glfwGetKey(m_window, GLFW_KEY_D) == GLFW_PRESS) {
+		camera.translate(Camera::TRANSLATION::RIGHT, delta);
+	}
 
 	state.prev_time_app = glfwGetTime();
 }
@@ -251,19 +284,23 @@ void A5::draw() {
 
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, m_ubo_vert);
-		
+
 		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, m_ubo_elem);
-		
-		glActiveTexture(GL_TEXTURE3);
-		glBindTexture(GL_TEXTURE_2D, m_ubo_bvh_tex);
-		
-		glActiveTexture(GL_TEXTURE4);
-		glBindTexture(GL_TEXTURE_2D, m_ubo_bvh_mesh_tex);
+
+		if (UboConstructor::bvh_arr.size() > 1024) {
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_2D, m_ubo_bvh_tex);
+		}
+
+		if (UboConstructor::bvh_mesh_arr.size() > 1024) {
+			glActiveTexture(GL_TEXTURE4);
+			glBindTexture(GL_TEXTURE_2D, m_ubo_bvh_mesh_tex);
+		}
 		
 		glActiveTexture(GL_TEXTURE5);
 		glBindTexture(GL_TEXTURE_2D, m_bg_texture);
-
+		
 		glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_perlin);
 		glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_mat);
 		glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_bvh);
@@ -273,8 +310,8 @@ void A5::draw() {
 		glBindBuffer(GL_UNIFORM_BUFFER, m_camera);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0, 64, glm::value_ptr(camera.getViewMatrix()));
 		glBufferSubData(GL_UNIFORM_BUFFER, 64, 12, glm::value_ptr(camera.getCamEye()));
-		int fov = camera.getFov();
-		glBufferSubData(GL_UNIFORM_BUFFER, 76, 4, &fov);  
+		float fov = camera.getFov();
+		glBufferSubData(GL_UNIFORM_BUFFER, 76, 4, &fov);
 		glBindBuffer(GL_UNIFORM_BUFFER, 0); 
 
 
@@ -328,7 +365,8 @@ bool A5::mouseMoveEvent(double xPos, double yPos)
 
 bool A5::mouseScrollEvent(double xOffSet, double yOffSet) {
 	bool eventHandled(false);
-	return eventHandled;
+	camera.zoom(-(float)yOffSet);
+	return true;
 }
 
 bool A5::windowResizeEvent(int width, int height) {
@@ -343,20 +381,6 @@ bool A5::windowResizeEvent(int width, int height) {
 bool A5::keyInputEvent(int key, int action, int mods) {
 	bool eventHandled(false);
 
-	// Fill in with event handling code...
-	if( action == GLFW_PRESS ) {
-        float dtime = glfwGetTime() - state.prev_time_app;
-        float delta = dtime * CAMERA_TRANSLATION_SPEED;
-		if (key == GLFW_KEY_UP) {
-			camera.translate(Camera::TRANSLATION::FORWARD, delta);	
-		} else if (key == GLFW_KEY_LEFT) {
-            camera.translate(Camera::TRANSLATION::LEFT, delta);
-		} else if (key == GLFW_KEY_DOWN) {
-			camera.translate(Camera::TRANSLATION::BACKWARD, delta);
-		} else if (key == GLFW_KEY_RIGHT) {
-			camera.translate(Camera::TRANSLATION::RIGHT, delta);
-		}
-	}
 	return eventHandled;
 }
 
@@ -375,6 +399,13 @@ A5::~A5() {
 	glDeleteVertexArrays(1, &m_vao_quad);
 	glDeleteBuffers(1, &m_vbo_quad);
 
+	glDeleteBuffers(1, &m_ubo_perlin);
+	glDeleteBuffers(1, &m_ubo_mat);
+	glDeleteBuffers(1, &m_ubo_bvh);
+	glDeleteBuffers(1, &m_ubo_bvh_mesh);
+	glDeleteBuffers(1, &m_ubo_light);
+	glDeleteBuffers(1, &m_camera);
+
 	glDeleteTextures(1, &m_ubo_obj);
 	glDeleteTextures(1, &m_ubo_vert);
 	glDeleteTextures(1, &m_ubo_elem);
@@ -382,10 +413,5 @@ A5::~A5() {
 	glDeleteTextures(1, &m_ubo_bvh_mesh_tex);
 	glDeleteTextures(1, &m_bg_texture);
 	
-	glDeleteBuffers(1, &m_ubo_perlin);
-	glDeleteBuffers(1, &m_ubo_mat);
-	glDeleteBuffers(1, &m_ubo_bvh);
-	glDeleteBuffers(1, &m_ubo_bvh_mesh);
-	glDeleteBuffers(1, &m_ubo_light);
-
+	
 }

@@ -15,6 +15,8 @@ enum class CSGNodeType {
 class CSGNode: public GeometryNode {
     CSGNodeType operation;
 
+    std::vector<std::pair<glm::mat4, glm::mat4>> t_matrices;
+
     bool __bboxIntersectionWithRay(const Ray &ray, const AABB &box,
         double &start, double &end) const;
     std::shared_ptr<MaterialInfo> __getMatInfoWithDistance(const glm::vec3 &t, 

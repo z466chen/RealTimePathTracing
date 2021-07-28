@@ -82,6 +82,14 @@ struct UboLight {
                     // 36
 };
 
+struct Defines {
+    int obj_texture_size;
+    int vert_texture_size;
+    int elem_texture_size;
+    int bvh_texture_size;
+    int bvh_mesh_texture_size;
+};
+
 class UboConstructor {
 public:
     static std::vector<UboObject> obj_arr;
@@ -92,6 +100,10 @@ public:
     static std::vector<UboBVH> bvh_mesh_arr;
     static std::vector<UboPerlinNoise> perlin_arr;
     static std::vector<UboLight> light_arr;
+
+    static Defines defines;
+
+    static void calcDefines();
 
     static void construct(
         GLuint &m_ubo_obj, 

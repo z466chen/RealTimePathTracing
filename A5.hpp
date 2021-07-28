@@ -77,6 +77,8 @@ private:
 
     GLuint m_bg_texture;
     GLuint ubackground;
+    
+    GLuint uinitialized = false;
 
     // initialization functions
     void init_shaders();

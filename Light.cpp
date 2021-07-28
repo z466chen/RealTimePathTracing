@@ -32,9 +32,8 @@ std::ostream& operator<<(std::ostream& out, const Light& l)
 int Light::construct() const {
   int id = UboConstructor::light_arr.size();
   UboConstructor::light_arr.emplace_back(UboLight());
-  auto &ubo_light = UboConstructor::light_arr.back();
-  ubo_light.color = colour;
-  ubo_light.position = position;
-  ubo_light.falloff = glm::vec3(falloff[0],falloff[1],falloff[2]);
+  UboConstructor::light_arr[id].color = colour;
+  UboConstructor::light_arr[id].position = position;
+  UboConstructor::light_arr[id].falloff = glm::vec3(falloff[0],falloff[1],falloff[2]);
   return id;
 }

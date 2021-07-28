@@ -1,7 +1,7 @@
 #version 330
 
 #define FLT_MAX 3.402823466e+38
-#define FLT_MIN 1.175494351e-38
+#define FLT_MIN -3.402823466e+38
 #define EPSILON 0.01
 #define M_PI 3.14159265358979323846
 
@@ -12,10 +12,27 @@
 #define s_curve(t) ( t * t * (3. - 2. * t) )
 #define lerp(t, a, b) ( a + t * (b - a) )
 
-#define BVH_STACK_SIZE 40000
-#define BVH_MESH_STACK_SIZE 40000
-#define CSG_STACK_SIZE 200
-#define CAST_RAY_STACK_SIZE 100
+#define BVH_STACK_SIZE 200
+#define BVH_MESH_STACK_SIZE 200
+#define CSG_STACK_SIZE 20
+#define CAST_RAY_STACK_SIZE 80
+
+#define OBJ_TEXTURE_SIZE {OBJ_TEXTURE_SIZE}
+#define VERT_TEXTURE_SIZE {VERT_TEXTURE_SIZE}
+#define ELEM_TEXTURE_SIZE {ELEM_TEXTURE_SIZE}
+#define BVH_TEXTURE_SIZE {BVH_TEXTURE_SIZE}
+#define BVH_MESH_TEXTURE_SIZE {BVH_MESH_TEXTURE_SIZE}
+
+// #define OBJ_TEXTURE_SIZE 128
+// #define VERT_TEXTURE_SIZE 128
+// #define ELEM_TEXTURE_SIZE 128
+// #define BVH_TEXTURE_SIZE 1
+// #define BVH_MESH_TEXTURE_SIZE 1
+
+// A non-const zero to prevent inline functions
+// #define ZERO (min(int(gl_FragCoord.x),0))
+
+#define ZERO 0
 
 const int maxDepth = 5;
 
@@ -135,6 +152,7 @@ layout (std140) uniform Camera {
 
 uniform vec3 ambient;
 uniform int num_of_lights;
+uniform bool initialized = false;
 uniform vec2 window_size;
 
 // input/outputs
@@ -206,16 +224,16 @@ mat4 getMat4FromTexture(in sampler2D texture, int offset, int tex_size) {
     return mat4(c1,c2,c3,c4);
 }
 
-LocalBVHNode getLocalBVHNodeFromTexture(in sampler2D texture, int id) {
+LocalBVHNode getLocalBVHNodeFromTexture(in sampler2D texture, int id, int tex_size) {
     LocalBVHNode node;
-    node.bbox.lower_bound = getVec3FromTexture(bvh_tex, 12*id,512);
-    node.bbox.upper_bound = getVec3FromTexture(bvh_tex, 12*id+3,512);
-    node.left_id  = int(getFloatFromTexture(bvh_tex, 12*id+6,512));
-    node.right_id = int(getFloatFromTexture(bvh_tex, 12*id+7,512));
-    node.obj_ids[0] = int(getFloatFromTexture(bvh_tex, 12*id+8,512));
-    node.obj_ids[1] = int(getFloatFromTexture(bvh_tex, 12*id+9,512));
-    node.obj_ids[2] = int(getFloatFromTexture(bvh_tex, 12*id+10,512));
-    node.obj_ids[3] = int(getFloatFromTexture(bvh_tex, 12*id+11,512));
+    node.bbox.lower_bound = getVec3FromTexture(texture, 12*id,tex_size);
+    node.bbox.upper_bound = getVec3FromTexture(texture, 12*id+3,tex_size);
+    node.left_id  = int(getFloatFromTexture(texture, 12*id+6,tex_size));
+    node.right_id = int(getFloatFromTexture(texture, 12*id+7,tex_size));
+    node.obj_ids[0] = int(getFloatFromTexture(texture, 12*id+8,tex_size));
+    node.obj_ids[1] = int(getFloatFromTexture(texture, 12*id+9,tex_size));
+    node.obj_ids[2] = int(getFloatFromTexture(texture, 12*id+10,tex_size));
+    node.obj_ids[3] = int(getFloatFromTexture(texture, 12*id+11,tex_size));
     return node;
 }
 
@@ -249,15 +267,15 @@ LocalBVHNode getLocalBVHNodeFromUniform(int id) {
 
 Object getObject(int id) {
     Object obj;
-    obj.t_matrix = getMat4FromTexture(obj_tex, 46*id, 1024);
-    obj.inv_t_matrix = getMat4FromTexture(obj_tex, 46*id+16, 1024);
-    obj.bbox.lower_bound = getVec3FromTexture(obj_tex, 46*id+32, 1024);
-    obj.bbox.upper_bound = getVec3FromTexture(obj_tex, 46*id+35, 1024);
-    obj.obj_data_1 = getVec2FromTexture(obj_tex, 46*id+38, 1024);
-    obj.obj_data_2 = getVec2FromTexture(obj_tex, 46*id+40, 1024);
-    obj.obj_data_3 = getVec2FromTexture(obj_tex, 46*id+42, 1024);
-    obj.obj_type = int(getFloatFromTexture(obj_tex, 46*id+44, 1024));
-    obj.mat_id = int(getFloatFromTexture(obj_tex, 46*id+45, 1024));
+    obj.t_matrix = getMat4FromTexture(obj_tex, 46*id, OBJ_TEXTURE_SIZE);
+    obj.inv_t_matrix = getMat4FromTexture(obj_tex, 46*id+16, OBJ_TEXTURE_SIZE);
+    obj.bbox.lower_bound = getVec3FromTexture(obj_tex, 46*id+32, OBJ_TEXTURE_SIZE);
+    obj.bbox.upper_bound = getVec3FromTexture(obj_tex, 46*id+35, OBJ_TEXTURE_SIZE);
+    obj.obj_data_1 = getVec2FromTexture(obj_tex, 46*id+38, OBJ_TEXTURE_SIZE);
+    obj.obj_data_2 = getVec2FromTexture(obj_tex, 46*id+40, OBJ_TEXTURE_SIZE);
+    obj.obj_data_3 = getVec2FromTexture(obj_tex, 46*id+42, OBJ_TEXTURE_SIZE);
+    obj.obj_type = int(getFloatFromTexture(obj_tex, 46*id+44, OBJ_TEXTURE_SIZE));
+    obj.mat_id = int(getFloatFromTexture(obj_tex, 46*id+45, OBJ_TEXTURE_SIZE));
     return obj;
 }
 
@@ -349,18 +367,18 @@ Intersection traverseTriangle(in Ray ray, in vec3 v0, in vec3 v1, in vec3 v2) {
     return result;
 }
 
-int bvh_mesh_stack[BVH_MESH_STACK_SIZE];
-
 Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
     Intersection result;
     result.intersects = false;
     result.t = FLT_MAX;
 
+    int bvh_mesh_stack[BVH_MESH_STACK_SIZE];
+
     int start = 0;
     int end = 1;
     bvh_mesh_stack[start] = mesh_bvh_id;
 
-    while(start < end) {
+    while(start < end+ZERO) {
         int id = bvh_mesh_stack[start % BVH_MESH_STACK_SIZE];
         ++start;
 
@@ -373,7 +391,7 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
         if (id < 1024) {
             localNode = getLocalBVHMeshNodeFromUniform(id);
         } else {
-            localNode = getLocalBVHNodeFromTexture(bvh_mesh_tex, id);
+            localNode = getLocalBVHNodeFromTexture(bvh_mesh_tex, id-1024, BVH_MESH_TEXTURE_SIZE);
         }
 
         if (!isIntersect(ray, localNode.bbox)) {
@@ -384,13 +402,13 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
             int oid = localNode.obj_ids[i];
             if (oid >= 0) {
                 
-                int i1 = int(getFloatFromTexture(elem_tex, 3*oid,512)) + vert_offset;
-                int i2 = int(getFloatFromTexture(elem_tex, 3*oid+1,512)) + vert_offset;
-                int i3 = int(getFloatFromTexture(elem_tex, 3*oid+2,512)) + vert_offset;
+                int i1 = int(getFloatFromTexture(elem_tex, 3*oid,ELEM_TEXTURE_SIZE)) + vert_offset;
+                int i2 = int(getFloatFromTexture(elem_tex, 3*oid+1,ELEM_TEXTURE_SIZE)) + vert_offset;
+                int i3 = int(getFloatFromTexture(elem_tex, 3*oid+2,ELEM_TEXTURE_SIZE)) + vert_offset;
                 
-                vec3 v1 = getVec3FromTexture(vert_tex, 3*i1, 512);
-                vec3 v2 = getVec3FromTexture(vert_tex, 3*i2, 512);
-                vec3 v3 = getVec3FromTexture(vert_tex, 3*i3, 512);
+                vec3 v1 = getVec3FromTexture(vert_tex, 3*i1, VERT_TEXTURE_SIZE);
+                vec3 v2 = getVec3FromTexture(vert_tex, 3*i2, VERT_TEXTURE_SIZE);
+                vec3 v3 = getVec3FromTexture(vert_tex, 3*i3, VERT_TEXTURE_SIZE);
 
                 Intersection temp = traverseTriangle(ray, v1, v2, v3);
 
@@ -410,11 +428,13 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
 float bvhMeshGetSdf(in vec3 t, int mesh_bvh_id, int vert_offset) {
     int start = 0;
     int end = 1;
+
+    int bvh_mesh_stack[BVH_MESH_STACK_SIZE];
     bvh_mesh_stack[start] = mesh_bvh_id;
 
     float result = FLT_MAX;
 
-    while(start < end) {
+    while(start < end+ZERO) {
         int id = bvh_mesh_stack[start % BVH_MESH_STACK_SIZE];
         ++start;
 
@@ -427,7 +447,7 @@ float bvhMeshGetSdf(in vec3 t, int mesh_bvh_id, int vert_offset) {
         if (id < 1024) {
             localNode = getLocalBVHMeshNodeFromUniform(id);
         } else {
-            localNode = getLocalBVHNodeFromTexture(bvh_mesh_tex, id);
+            localNode = getLocalBVHNodeFromTexture(bvh_mesh_tex, id-1024, BVH_MESH_TEXTURE_SIZE);
         }
 
         float bboxSdf = bboxGetSdf(t, localNode.bbox);
@@ -441,13 +461,13 @@ float bvhMeshGetSdf(in vec3 t, int mesh_bvh_id, int vert_offset) {
             int oid = localNode.obj_ids[i];
             if (oid >= 0) {
                 
-                int i1 = int(getFloatFromTexture(elem_tex, 3*oid,512)) + vert_offset;
-                int i2 = int(getFloatFromTexture(elem_tex, 3*oid+1,512)) + vert_offset;
-                int i3 = int(getFloatFromTexture(elem_tex, 3*oid+2,512)) + vert_offset;
+                int i1 = int(getFloatFromTexture(elem_tex, 3*oid,ELEM_TEXTURE_SIZE)) + vert_offset;
+                int i2 = int(getFloatFromTexture(elem_tex, 3*oid+1,ELEM_TEXTURE_SIZE)) + vert_offset;
+                int i3 = int(getFloatFromTexture(elem_tex, 3*oid+2,ELEM_TEXTURE_SIZE)) + vert_offset;
                 
-                vec3 v1 = getVec3FromTexture(vert_tex, 3*i1, 512);
-                vec3 v2 = getVec3FromTexture(vert_tex, 3*i2, 512);
-                vec3 v3 = getVec3FromTexture(vert_tex, 3*i3, 512);
+                vec3 v1 = getVec3FromTexture(vert_tex, 3*i1, VERT_TEXTURE_SIZE);
+                vec3 v2 = getVec3FromTexture(vert_tex, 3*i2, VERT_TEXTURE_SIZE);
+                vec3 v3 = getVec3FromTexture(vert_tex, 3*i3, VERT_TEXTURE_SIZE);
 
                 result = min(result, triangleGetSdf(t, v1, v2, v3));             
             }
@@ -461,63 +481,6 @@ float bvhMeshGetSdf(in vec3 t, int mesh_bvh_id, int vert_offset) {
 }
 
 // CSG parse module
-Object csg_cache[CSG_STACK_SIZE];
-int left_cache[CSG_STACK_SIZE];
-int right_cache[CSG_STACK_SIZE];
-
-MaterialInfo mat_info_cache[CSG_STACK_SIZE];
-float sdf_cache[CSG_STACK_SIZE];
-
-int index_stack[CSG_STACK_SIZE];
-int parse_stack[CSG_STACK_SIZE];
-
-float getSdf(in Object obj, in vec3 t) {
-    float sdf;
-    switch(obj.obj_type) {
-        case 0: {
-            vec3 pos = vec3(obj.obj_data_1.xy, obj.obj_data_2.x);
-            float radius = obj.obj_data_2.y;
-            sdf = length(t - pos) - radius;
-            break;
-        }
-        case 1: {
-            vec3 pos = vec3(obj.obj_data_1.xy, obj.obj_data_2.x);
-            float size = obj.obj_data_2.y;
-            vec3 q = abs(t - pos) - vec3(size)*0.5f;
-            sdf = length(max(q,0.0f)) + min(max(q.x,max(q.y,q.z)),0.0);
-            break;
-        }
-        case 2: {
-            vec3 size = vec3(obj.obj_data_1.xy, obj.obj_data_2.x);
-            float radius = obj.obj_data_2.y;
-            vec3 q = abs(t) - size;
-            sdf = length(max(q, 0.0f)) + min(max(q.x,max(q.y,q.z)),0.0) - radius;
-            break;
-        }
-        case 3: {
-            float radius = obj.obj_data_1.x;
-            float height = obj.obj_data_1.y;
-            vec3 d = vec3(abs(vec2(t.y, length(vec3(t.x,0.0f,t.z)))) - 
-                vec2(height,radius), 0.0f);
-            sdf = min(max(d.x,d.y),0.0) + length(max(d, vec3(0.0f)));
-            break;
-        }
-        case 4: {
-            vec2 parameters = obj.obj_data_1;
-            vec2 q = vec2(length(vec3(t.x, 0.0f, t.z))-parameters.x,t.y);
-            sdf = length(vec3(q, 0.0f)) - parameters.y;
-            break;
-        }
-        case 5: {
-            int bvh_mesh_id = int(obj.obj_data_1.x);
-            int vertex_offset = int(obj.obj_data_1.y);
-            sdf = bvhMeshGetSdf(t, bvh_mesh_id, vertex_offset);
-            break;
-        }
-    }
-    return sdf;
-}
-
 float noise(in vec3 t) {
     int bx0, bx1, by0, by1, bz0, bz1, b00, b10, b01, b11;
 	float rx0, rx1, ry0, ry1, rz0, rz1, sy, sz, a, b, c, d, temp, u, v;
@@ -631,117 +594,84 @@ MaterialInfo getMaterialInfo(in Object obj, in vec3 t) {
         }
     }
     return info;
-} 
-
-MaterialInfo mergeSdf(int operation, 
-    float left_sdf, float right_sdf,
-    in MaterialInfo left_mat_info, 
-    in MaterialInfo right_mat_info, 
-    out float dst, bool shouldCalcColor) {
-    
-    switch (operation) {
-        case 0: {
-            if (left_sdf > right_sdf) {
-                dst = right_sdf;
-                return right_mat_info;
-            } 
-            return left_mat_info;
-        }
-        case 1: {
-            if (left_sdf < right_sdf) {
-                dst = right_sdf;
-                return right_mat_info;
-            } 
-            return left_mat_info;
-        }
-        case 2: {
-            dst = max(left_sdf, -right_sdf);
-            return left_mat_info;
-        }
-        case 3: {
-            float k = 50.0f;
-            float h = max(k - abs(left_sdf - right_sdf), 0.0f) / k;
-
-            if (shouldCalcColor) {
-                left_mat_info.kd = lerp(left_mat_info.kd, right_mat_info.kd, 1.0f - h);
-                left_mat_info.ks = lerp(left_mat_info.ks, right_mat_info.ks, 1.0f - h);
-                left_mat_info.shininess = lerp(left_mat_info.shininess, 
-                    right_mat_info.shininess, 1.0f - h);
-                if (h < 0.5) {
-                    left_mat_info.ior = right_mat_info.ior;
-                }
-            }
-
-            dst = min(dst, right_sdf) - pow(h, 3)*k*(1/6.0f);
-            return left_mat_info;
-        }
-    }
 }
 
-void loadObjects(in Object root) {
-    csg_cache[0] = root;
-    parse_stack[0] = 0;
-    index_stack[0] = 0;
-    int top = 0;
-    int index = 1;
+MaterialInfo sdfWithMatInfo(int oid, in vec3 t, out float sdf, bool shouldCalcColor) {
+    
+    int index_stack[CSG_STACK_SIZE];
+    int parse_stack[CSG_STACK_SIZE];
 
-    while(top != 0) {
+    MaterialInfo mat_info_cache[CSG_STACK_SIZE];
+    float sdf_cache[CSG_STACK_SIZE];
+    MaterialInfo info;
+    
+    parse_stack[0] = 0;
+    int top = 0;
+    index_stack[top] = oid;
+
+    while(top >= ZERO) {
         int code = parse_stack[top];
-        Object object = csg_cache[index_stack[top]];
+        int currentIndex = index_stack[top];
+        Object object = getObject(currentIndex);
 
         if (object.obj_type != 6) {
+            vec3 trans_t = ptrans(object.inv_t_matrix, t);
+            
+            
+            float sdf;
+            switch(object.obj_type) {
+                case 0: {
+                    vec3 pos = vec3(object.obj_data_1.xy, object.obj_data_2.x);
+                    float radius = object.obj_data_2.y;
+                    sdf = length(trans_t - pos) - radius;
+                    break;
+                }
+                case 1: {
+                    vec3 pos = vec3(object.obj_data_1.xy, object.obj_data_2.x);
+                    float size = object.obj_data_2.y;
+                    vec3 q = abs(trans_t - pos) - vec3(size)*0.5f;
+                    sdf = length(max(q,0.0f)) + min(max(q.x,max(q.y,q.z)),0.0);
+                    break;
+                }
+                case 2: {
+                    vec3 size = vec3(object.obj_data_1.xy, object.obj_data_2.x);
+                    float radius = object.obj_data_2.y;
+                    vec3 q = abs(trans_t) - size;
+                    sdf = length(max(q, 0.0f)) + min(max(q.x,max(q.y,q.z)),0.0) - radius;
+                    break;
+                }
+                case 3: {
+                    float radius = object.obj_data_1.x;
+                    float height = object.obj_data_1.y;
+                    vec3 d = vec3(abs(vec2(trans_t.y, length(vec3(trans_t.x,0.0f,trans_t.z)))) - 
+                        vec2(height,radius), 0.0f);
+                    sdf = min(max(d.x,d.y),0.0) + length(max(d, vec3(0.0f)));
+                    break;
+                }
+                case 4: {
+                    vec2 parameters = object.obj_data_1;
+                    vec2 q = vec2(length(vec3(trans_t.x, 0.0f, trans_t.z))-parameters.x,trans_t.y);
+                    sdf = length(vec3(q, 0.0f)) - parameters.y;
+                    break;
+                }
+                case 5: {
+                    int bvh_mesh_id = int(object.obj_data_1.x);
+                    int vertex_offset = int(object.obj_data_1.y);
+                    sdf = bvhMeshGetSdf(trans_t, bvh_mesh_id, vertex_offset);
+                    break;
+                }
+            }
+            sdf_cache[top] = sdf;
+
+            if (shouldCalcColor) {
+                mat_info_cache[top] = getMaterialInfo(object, trans_t);
+            }
             --top;
             continue;
         }
 
         int left_id = int(object.obj_data_1.x);
         int right_id = int(object.obj_data_1.y);
-
-        if (code == 0) {
-            parse_stack[top] = 1;
-            left_cache[index_stack[top]] = index;
-            csg_cache[index] = getObject(left_id);
-            ++index;
-            ++top;
-            parse_stack[top] = 0;            
-            index_stack[top] = index - 1;
-        } else if (code == 1) {
-            parse_stack[top] = 2;
-            right_cache[index_stack[top]] = index;
-            csg_cache[index] = getObject(right_id);
-            ++index;
-            ++top;
-            parse_stack[top] = 0;            
-            index_stack[top] = index - 1;
-        } else {
-            --top;
-        }
-    }
-}
-
-MaterialInfo sdfWithMatInfo(in vec3 t, out float sdf, bool shouldCalcColor) {
-    MaterialInfo info;
-    
-    parse_stack[0] = 0;
-    int top = 0;
-    index_stack[top] = 0;
-
-    while(top != 0) {
-        int code = parse_stack[top];
-        int currentIndex = index_stack[top];
-        Object object = csg_cache[currentIndex];
-
-        if (object.obj_type != 6) {
-            sdf_cache[currentIndex] = getSdf(object, t);
-            if (shouldCalcColor) {
-                mat_info_cache[currentIndex] = getMaterialInfo(object, t);
-            }
-            --top;
-            continue;
-        }
-
-        int left_id = left_cache[currentIndex];
-        int right_id = right_cache[currentIndex];
         int operation = int(object.obj_data_2.x);
 
         if (code == 0) {
@@ -751,25 +681,62 @@ MaterialInfo sdfWithMatInfo(in vec3 t, out float sdf, bool shouldCalcColor) {
             index_stack[top] = left_id;
         } else if (code == 1) {
             parse_stack[top] = 2;
+            sdf_cache[top] = sdf_cache[top+1];
+            mat_info_cache[top] = mat_info_cache[top+1];
             ++top;
             parse_stack[top] = 0;            
             index_stack[top] = right_id;
         } else {
-            float left_sdf = sdf_cache[left_id];
-            float right_sdf = sdf_cache[right_id];
-            MaterialInfo left_mat_info = mat_info_cache[left_id];
-            MaterialInfo right_mat_info = mat_info_cache[right_id];
+            float left_sdf = sdf_cache[top];
+            float right_sdf = sdf_cache[top+1];
+            MaterialInfo left_mat_info = mat_info_cache[top];
+            MaterialInfo right_mat_info = mat_info_cache[top+1];
 
-            float sdf;
-            if (shouldCalcColor) {
-                mat_info_cache[currentIndex] = mergeSdf(
-                    operation, left_sdf, right_sdf, 
-                    left_mat_info, right_mat_info, sdf, true);
-            } else {
-                mergeSdf(operation, left_sdf, right_sdf, 
-                    left_mat_info, right_mat_info, sdf, true);
+            float sdf = left_sdf;
+            switch (operation) {
+                case 0: {
+                    if (left_sdf > right_sdf) {
+                        sdf = right_sdf;
+                        mat_info_cache[top] = right_mat_info;
+                    } 
+                    mat_info_cache[top] = right_mat_info;
+                    break;
+                }
+                case 1: {
+                    if (left_sdf < right_sdf) {
+                        sdf = right_sdf;
+                        mat_info_cache[top] = right_mat_info;
+                    } 
+                    mat_info_cache[top] = left_mat_info;
+                    break;
+                }
+                case 2: {
+                    sdf = max(left_sdf, -right_sdf);
+                    mat_info_cache[top] = left_mat_info;
+                    break;
+                }
+                case 3: {
+                    float k = 50.0f;
+                    float h = max(k - abs(left_sdf - right_sdf), 0.0f) / k;
+
+                    if (shouldCalcColor) {
+                        MaterialInfo merged_info;
+                        merged_info.kd = lerp(left_mat_info.kd, right_mat_info.kd, 1.0f - h);
+                        merged_info.ks = lerp(left_mat_info.ks, right_mat_info.ks, 1.0f - h);
+                        merged_info.shininess = lerp(left_mat_info.shininess, 
+                            right_mat_info.shininess, 1.0f - h);
+                        merged_info.ior = left_mat_info.ior;
+                        if (h < 0.5) {
+                            merged_info.ior = right_mat_info.ior;
+                        }
+                        mat_info_cache[top] = left_mat_info;
+                    }
+
+                    sdf = min(left_sdf, right_sdf) - pow(h, 3)*k*(1/6.0f);
+                    break;
+                }
             }
-            sdf_cache[currentIndex] = sdf;
+            sdf_cache[top] = sdf;
             --top;
         }
     }
@@ -780,30 +747,20 @@ MaterialInfo sdfWithMatInfo(in vec3 t, out float sdf, bool shouldCalcColor) {
     return info;
 } 
 
-vec3 estimateNormal(vec3 t) {
-    vec3 x_plus = vec3(t.x + EPSILON,t.y,t.z);
-    vec3 x_minus = vec3(t.x-EPSILON,t.y,t.z);
-
-    vec3 y_plus = vec3(t.x,t.y+EPSILON,t.z);
-    vec3 y_minus = vec3(t.x,t.y-EPSILON,t.z);
-
-    vec3 z_plus = vec3(t.x,t.y,t.z+EPSILON);
-    vec3 z_minus = vec3(t.x,t.y,t.z-EPSILON);
-
-
-    vec3 start;
-    vec3 end;
-    sdfWithMatInfo(x_plus, start.x, false);
-    sdfWithMatInfo(x_minus, end.x, false);
-    sdfWithMatInfo(y_plus, start.y, false);
-    sdfWithMatInfo(y_minus, end.y, false);
-    sdfWithMatInfo(z_plus, start.z, false);
-    sdfWithMatInfo(z_minus, end.z, false);
-    
-   return normalize(start - end);
+vec3 estimateNormal(int oid, vec3 t) {
+    const float h = EPSILON;      // replace by an appropriate value
+    vec3 n = vec3(0.0);
+    for( int i=ZERO; i<4; i++ )
+    {
+        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+        float sdf;
+        sdfWithMatInfo(oid, t+e*h, sdf, false);
+        n += e*sdf;
+    }
+    return normalize(n);
 }
 
-Intersection objTraverse(in Object obj, in Ray ray) {
+Intersection objTraverse(int oid, in Object obj, in Ray ray) {
     Intersection result;
     result.intersects = false;
 
@@ -832,6 +789,7 @@ Intersection objTraverse(in Object obj, in Ray ray) {
                 result.position = ray.ro + result.t * ray.rd;
                 result.normal = normalize(result.position - ce);
             }
+            result.m = getMaterialInfo(obj, result.position);
             break;
         }
         case 1: {
@@ -849,9 +807,12 @@ Intersection objTraverse(in Object obj, in Ray ray) {
             result.normal = -sign(normalizedRd)*step(t1.yzx,t1.xyz)*step(t1.zxy,t1.xyz);
             if (tN > 0.0f) {
                 result.t = tN/rdlength;
+                result.position = ray.rd * result.t + ray.ro;
             } else {
                 result.t = tF/rdlength;
+                result.position = ray.rd * result.t + ray.ro;
             }
+            result.m = getMaterialInfo(obj, result.position);
             break;
         }
         case 2: {
@@ -950,6 +911,7 @@ Intersection objTraverse(in Object obj, in Ray ray) {
                 result.normal = sign(result.position)*normalize(
                     max(abs(result.position)- size,0));
             }
+            result.m = getMaterialInfo(obj, result.position);
             break;
         }
         case 3: {
@@ -1041,7 +1003,7 @@ Intersection objTraverse(in Object obj, in Ray ray) {
             } else {
                 result.normal = vec3(0.0f, 1.0f, 0.0f);
             }
-
+            result.m = getMaterialInfo(obj, result.position);
             break;
         }
         case 4: {
@@ -1059,7 +1021,7 @@ Intersection objTraverse(in Object obj, in Ray ray) {
             float k1 = n*k - Ra2*dot(rd.xy,ro.xy);
             float k0 = k*k - Ra2*dot(ro.xy,ro.xy);
             
-            if( abs(k3*(k3*k3-k2)+k1) < 0.01 )
+            if( abs(k3*(k3*k3-k2)+k1) < 0.05 )
             {
                 po = -1.0;
                 float tmp=k1; k1=k3; k3=tmp;
@@ -1120,38 +1082,51 @@ Intersection objTraverse(in Object obj, in Ray ray) {
                 if( t3>0.0 ) t=min(t,t3);
                 if( t4>0.0 ) t=min(t,t4);
                 //found !
-                result.intersects = true;
-                result.t = t/rdlength;
-                result.position = ray.rd * result.t + ray.ro;
-                result.normal = normalize( result.position*(
-                    dot(result.position,result.position)-
-                    tor.y*tor.y - tor.x*tor.x*vec3(1.0,1.0,-1.0)));
+                if (t < 1e19 && t > 0) {
+                    result.intersects = true;
+                    result.t = t/rdlength;
+                    result.position = ray.rd * result.t + ray.ro;
+                    result.normal = normalize( result.position*(
+                        dot(result.position,result.position)-
+                        tor.y*tor.y - tor.x*tor.x*vec3(1.0,1.0,-1.0)));
+                }
             }
+            result.m = getMaterialInfo(obj, result.position);
             break;
         }
         case 5: {
             int bvh_mesh_id = int(obj.obj_data_1.x);
             int vertex_offset = int(obj.obj_data_1.y);
             result = bvhMeshTraverse(ray, bvh_mesh_id, vertex_offset);
+            result.m = getMaterialInfo(obj, result.position);
             break;
         }
         case 6: {
-
             AABB bbox = obj.bbox;
 
             float current,end;
             bboxInterval(ray, bbox, current, end);
 
-            if (end <= 0 || current < end) return result;
+            if (end <= 0 || current >= end) return result;
+
+            float delta = 2;
+            current = max(current, delta);
+            end = max(end, delta);
             vec3 t = ray.ro + current * ray.rd;
 
-            while(current < end) {
-                loadObjects(obj);
+            // Object csg_cache[CSG_STACK_SIZE];
+            // int left_cache[CSG_STACK_SIZE];
+            // int right_cache[CSG_STACK_SIZE];
+
+            int maxStep = 100;
+            int currentStep = 0;
+            while(current < end+ZERO && currentStep < maxStep) {
+                // loadObjects(obj);
                 float dst;
-                result.m = sdfWithMatInfo(t, dst, true);
+                result.m = sdfWithMatInfo(oid,t,dst,true);
                 if (dst < EPSILON) {
                     
-                    result.normal = estimateNormal(t);
+                    result.normal = estimateNormal(oid, t);
                     result.position = t;
                     result.t = current;
                     result.intersects = true;
@@ -1160,29 +1135,52 @@ Intersection objTraverse(in Object obj, in Ray ray) {
 
                 current += dst;
                 t = ray.ro + current * ray.rd;
+                ++currentStep;
             }     
+            // if (result.intersects) {
+            //     result.intersects = false;
+            //     vec3 ce = vec3(0, 0,0);
+            //     float ra = 100;
+            //     vec3 oc = ray.ro - ce;
+            //     float b = dot( oc, normalizedRd );
+            //     float c = dot( oc, oc ) - ra*ra;
+            //     float h = b*b - c;
+            //     if( h<0.0 ) return result; // no intersection
+            //     h = sqrt( h );
+            //     if (-b-h > 0.0f) {
+            //         result.intersects = true;
+            //         result.t = (-b-h)/rdlength;
+            //         result.position = ray.ro + result.t * ray.rd;
+            //         result.normal = normalize(result.position - ce);
+            //     } else if (-b+h > 0.0f) {
+            //         result.intersects = true;
+            //         result.t = (-b+h)/rdlength;
+            //         result.position = ray.ro + result.t * ray.rd;
+            //         result.normal = normalize(result.position - ce);
+            //     }
+            // }
+            
+            break;
+        }
+        default: {
             break;
         }
     }
-
-    if (result.intersects && obj.mat_id > 0) {
-        result.m = getMaterialInfo(obj, result.position);
-    }
     return result;
 }
-
-int bvh_stack[BVH_STACK_SIZE];
 
 Intersection bvhTraverse(in Ray ray) {
     Intersection result;
     result.intersects = false;
     result.t = FLT_MAX;
 
+    int bvh_stack[BVH_STACK_SIZE];
+
     int start = 0;
     int end = 1;
     bvh_stack[start] = 0;
 
-    while(start < end) {
+    while(start < end+ZERO) {
         int id = bvh_stack[start % BVH_STACK_SIZE];
         ++start;
 
@@ -1195,7 +1193,7 @@ Intersection bvhTraverse(in Ray ray) {
         if (id < 1024) {
             localNode = getLocalBVHNodeFromUniform(id);
         } else {
-            localNode = getLocalBVHNodeFromTexture(bvh_tex, id);
+            localNode = getLocalBVHNodeFromTexture(bvh_tex, id-1024, BVH_TEXTURE_SIZE);
         }
 
         if (!isIntersect(ray, localNode.bbox)) {
@@ -1209,14 +1207,14 @@ Intersection bvhTraverse(in Ray ray) {
                 Object obj = getObject(oid);
                 
                 Ray transformed_ray;
-                transformed_ray.ro = ptrans(obj.t_matrix, ray.ro);
+                transformed_ray.ro = ptrans(obj.inv_t_matrix, ray.ro);
                 transformed_ray.rd = vtrans(obj.inv_t_matrix, ray.rd);
 
-                Intersection temp = objTraverse(obj, ray);
+                Intersection temp = objTraverse(oid, obj, transformed_ray);
 
                 if (temp.intersects && temp.t < result.t) {
                     result = temp;
-                    result.position = temp.t * ray.rd + ray.ro;
+                    result.position = ptrans(obj.t_matrix, result.position);
                     result.normal = vtrans(transpose(obj.inv_t_matrix), temp.normal);
                 }                
             }
@@ -1230,12 +1228,11 @@ Intersection bvhTraverse(in Ray ray) {
     return result;
 }
 
-
-Ray ray_queue[CAST_RAY_STACK_SIZE];
-int depth_queue[CAST_RAY_STACK_SIZE];
-vec3 factor_queue[CAST_RAY_STACK_SIZE];
-
 vec3 castRay(in Ray primaryRay) {
+    Ray ray_queue[CAST_RAY_STACK_SIZE];
+    int depth_queue[CAST_RAY_STACK_SIZE];
+    vec3 factor_queue[CAST_RAY_STACK_SIZE];
+    
     int start = 0;
     int end = 1;
 
@@ -1244,7 +1241,7 @@ vec3 castRay(in Ray primaryRay) {
     depth_queue[0] = 0;
     factor_queue[0] = vec3(1.0f);
 
-    while(start < end) {
+    while(start < end+ZERO) {
         int depth = depth_queue[start%CAST_RAY_STACK_SIZE];
         vec3 factor = factor_queue[start%CAST_RAY_STACK_SIZE];
         Ray ray = ray_queue[start%CAST_RAY_STACK_SIZE];
@@ -1255,7 +1252,7 @@ vec3 castRay(in Ray primaryRay) {
         }
         Intersection payload = bvhTraverse(ray);
 
-        if (payload.intersects && payload.m.isDiffuse) {
+        if (payload.intersects && !payload.m.isDiffuse) {
             float cos_i = dot(-ray.rd, payload.normal);
 
             float theta_t;
@@ -1296,7 +1293,7 @@ vec3 castRay(in Ray primaryRay) {
             depth_queue[end%CAST_RAY_STACK_SIZE] = depth + 1;
             factor_queue[end%CAST_RAY_STACK_SIZE] = factor*payload.m.ks*(1-kr);
             ++end;
-        } else if (payload.intersects && !payload.m.isDiffuse) {
+        } else if (payload.intersects && payload.m.isDiffuse) {
             vec3 specular = vec3(0.0f);
             vec3 diffuse = vec3(0.0f);
 
@@ -1345,11 +1342,14 @@ void main() {
 
     vec3 dir = vtrans(transpose(viewMatrix), 
         vec3((gl_FragCoord.x - window_size.x*0.5f)*h_ratio,
-             (window_size.y*0.5f - gl_FragCoord.y)*w_ratio,
+             (gl_FragCoord.y - window_size.y*0.5f)*w_ratio,
              -1.0f));
     Ray primaryRay = Ray(eyePos, dir);
-    fragColor = vec4(castRay(primaryRay), 1.0f);
-    if (length(fragColor) < EPSILON) {
+
+    vec3 color = castRay(primaryRay);
+    fragColor = vec4(color, 1.0f);
+
+    if (length(color) < EPSILON) {
         fragColor = texture(bg_tex, texCoord);
     }
 }

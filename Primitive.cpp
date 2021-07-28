@@ -67,9 +67,9 @@ int NonhierSphere::construct() const {
     
     AABB bbox = getAABB();
     ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
-    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x); 
     ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
-    
+
     ubo_obj.obj_data_1 = glm::vec2(m_pos.x, m_pos.y);
     ubo_obj.obj_data_2 = glm::vec2(m_pos.z, m_radius);
     ubo_obj.obj_type = (int)UboPrimitiveType::SPHERE;
@@ -168,8 +168,8 @@ double NonhierBox::sdf(const glm::vec3 &t) const {
 
 AABB NonhierBox::getAABB() const {
     AABB result;
-    result.lower_bound = m_pos - glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5);
-    result.upper_bound = m_pos + glm::vec3(m_size*0.5,m_size*0.5,m_size*0.5); 
+    result.lower_bound = m_pos - glm::vec3(m_size,m_size,m_size);
+    result.upper_bound = m_pos + glm::vec3(m_size,m_size,m_size); 
     return result;
 }
 
@@ -180,7 +180,7 @@ int NonhierBox::construct() const {
     
     AABB bbox = getAABB();
     ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
-    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x); 
     ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
     
     ubo_obj.obj_data_1 = glm::vec2(m_pos.x, m_pos.y);
@@ -365,7 +365,7 @@ int RoundBox::construct() const {
     
     AABB bbox = getAABB();
     ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
-    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x); 
     ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
     
     ubo_obj.obj_data_1 = glm::vec2(size.x, size.y);
@@ -496,7 +496,7 @@ int Cylinder::construct() const {
     
     AABB bbox = getAABB();
     ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
-    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x); 
     ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
     
     ubo_obj.obj_data_1 = glm::vec2(radius, height);
@@ -622,7 +622,7 @@ int Torus::construct() const {
     
     AABB bbox = getAABB();
     ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
-    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
+    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x); 
     ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
     
     ubo_obj.obj_data_1 = parameters;

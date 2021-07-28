@@ -19,7 +19,7 @@ Mesh::Mesh( const std::string& fname )
 	double vx, vy, vz;
 	size_t s1, s2, s3;
 
-	std::vector<Object *> triangles;
+	std::vector<object_reference> triangles;
 
 
 	std::ifstream ifs( fname.c_str() );
@@ -43,7 +43,7 @@ Mesh::Mesh( const std::string& fname )
 	}
 
 	for (auto &trig: m_faces) {
-		triangles.emplace_back(&trig);
+		triangles.emplace_back(std::make_pair(&trig, std::make_pair(glm::mat4(1.0f), glm::mat4(1.0f))));
 	}
 	bvh = std::make_unique<BVH>(std::move(triangles));
 }
@@ -88,16 +88,15 @@ AABB Mesh::getAABB() const {
 int Mesh::construct() const {
     int id = UboConstructor::obj_arr.size();
     UboConstructor::obj_arr.emplace_back(UboObject());
-    auto &ubo_obj = UboConstructor::obj_arr.back();
     
     AABB bbox = getAABB();
-    ubo_obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
-    ubo_obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.y, bbox.upper_bound.x); 
-    ubo_obj.obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
+    UboConstructor::obj_arr[id].obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y); 
+    UboConstructor::obj_arr[id].obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x); 
+    UboConstructor::obj_arr[id].obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
     
 	int bvh_id = bvh->construct();
-    ubo_obj.obj_data_1 = glm::vec2(bvh_id, vertex_offset);
-    ubo_obj.obj_type = (int)UboPrimitiveType::MESH;
+    UboConstructor::obj_arr[id].obj_data_1 = glm::vec2(bvh_id, vertex_offset);
+    UboConstructor::obj_arr[id].obj_type = (int)UboPrimitiveType::MESH;
     return id;
 }
 
