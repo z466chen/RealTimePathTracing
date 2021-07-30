@@ -39,9 +39,16 @@ A5::A5(SceneNode *root,
 	camera{(float)fov, eye,glm::normalize(view - eye),  glm::normalize(up)},
 	ambient{ambient} {
 	BVH bvh{root};
-	bvh_id = bvh.construct();
+	glm::mat4 unit = glm::mat4(1.0f);
+	bvh_id = bvh.construct(unit);
+
+	total_area = 0.0f;
+	for (auto &l: UboConstructor::light_arr) {
+		total_area += l.oid_and_area.y;
+	}
+	
 	for (auto l: lights) {
-		l->construct();
+		l->construct(unit);
 	}
 }
 
@@ -50,7 +57,7 @@ void A5::init_shaders() {
 	m_rt_shader.generateProgramObject();
 
 	std::string frag_shader_src;
-	frag_shader_src = readFile(getAssetFilePath("shaders/RayTrace.fs"));
+	frag_shader_src = readFile(getAssetFilePath("shaders/PathTrace.fs"));
 	
 	replace(frag_shader_src, "{OBJ_TEXTURE_SIZE}", std::to_string(UboConstructor::defines.obj_texture_size));
 	replace(frag_shader_src, "{VERT_TEXTURE_SIZE}", std::to_string(UboConstructor::defines.vert_texture_size));
@@ -123,6 +130,7 @@ void A5::init_textures() {
 		if (code < 0) {
 			return;
 		}
+
 	m_rt_shader.disable();
 	CHECK_GL_ERRORS;
 }
@@ -146,7 +154,7 @@ void A5::init_uniforms() {
 		ubvhMesh = glGetUniformBlockIndex(m_rt_shader.getProgramObject(), "BVHMesh");
 		ulight = glGetUniformBlockIndex(m_rt_shader.getProgramObject(), "Light");
 		ucamera = glGetUniformBlockIndex(m_rt_shader.getProgramObject(), "Camera");
-
+	
 		glUniform1i(uobj, 0);
 		glUniform1i(uvert, 1);
 		glUniform1i(uelem, 2);
@@ -193,14 +201,16 @@ void A5::init_uniforms() {
 		uambient = glGetUniformLocation(m_rt_shader.getProgramObject(), "ambient");
 		unol = glGetUniformLocation(m_rt_shader.getProgramObject(), "num_of_lights");
 		uwsize = glGetUniformLocation(m_rt_shader.getProgramObject(), "window_size");
-		uinitialized = glGetUniformLocation(m_rt_shader.getProgramObject(), "initialized");
-		// glUniform1i(uinitialized, true);
+		utotalArea = glGetUniformLocation(m_rt_shader.getProgramObject(), "total_light_area");
+		useed = glGetUniformLocation(m_rt_shader.getProgramObject(), "seed");
 	m_rt_shader.disable();
 	CHECK_GL_ERRORS;
 }
 
 void A5::init() {
 	glClearColor( ambient.x, ambient.y, ambient.z, 1.0 );
+	// glfwWindowHint(GLFW_SAMPLES, 16);
+	// glEnable(GL_MULTISAMPLE);
     init_shaders();
 	m_rt_shader.enable();
 	init_quad();
@@ -276,8 +286,13 @@ void A5::draw() {
 		glUniformBlockBinding(m_rt_shader.getProgramObject(),  ulight, 4);
 
 		glUniform3fv(uambient, 1, glm::value_ptr(ambient));
-		glUniform1i(unol, UboConstructor::light_arr.size());
+		int size = UboConstructor::light_arr.size();
+		glUniform1i(unol, size);
 		glUniform2f(uwsize,m_framebufferWidth, m_framebufferHeight);
+		// generate random seeds
+		float time = 1.0f;
+		glUniform1fv(useed, 1, &time);
+		glUniform1fv(utotalArea, 1, &total_area);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, m_ubo_obj);
@@ -340,8 +355,8 @@ bool A5::mouseMoveEvent(double xPos, double yPos)
 		// Probably need some instance variables to track the current
 		// rotation amount, and maybe the previous X position (so 
 		// that you can rotate relative to the *change* in X.
-
-        float dtime = glfwGetTime() - state.prev_time_app;
+		float currentTime = glfwGetTime();
+        float dtime = glfwGetTime() - state.prev_time_mouse;
 
 		if (!state.is_mouse_pos_init) {
 			state.mouse_pos_prev = glm::vec2(xPos, yPos);
@@ -358,6 +373,8 @@ bool A5::mouseMoveEvent(double xPos, double yPos)
 		}
 
 		state.mouse_pos_prev = glm::vec2(xPos, yPos);
+
+		state.prev_time_mouse = currentTime;
 	}
 
 	return eventHandled;

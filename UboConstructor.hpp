@@ -18,7 +18,9 @@ enum class UboMaterialType {
     PHONG_DIFFUSE=0,
     PHONG_SPECULAR,
     SOLID_DIFFUSE,
-    SOLID_SPECULAR
+    SOLID_SPECULAR,
+    MICROFACET,
+    LIGHT
 };
 
 struct UboObject{
@@ -75,12 +77,11 @@ struct UboPerlinNoise {
         // 20
 };
 
+
 struct UboLight {
-    glm::vec3 color; // 0
-    glm::vec3 position; // 12
-    glm::vec3 falloff; // 24
-                    // 36
+    glm::vec4 oid_and_area;
 };
+
 
 struct Defines {
     int obj_texture_size;

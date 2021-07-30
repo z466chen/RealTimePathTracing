@@ -45,7 +45,8 @@ public:
     // return intersection payload of given ray
     virtual Intersection intersect(const Ray &ray) const { return Intersection(); }
     virtual AABB getAABB() const { return AABB(); }
-    virtual int construct() const { return -1; }
+    virtual int construct(const glm::mat4 &t_matrix) const { return -1; }
+    virtual float getArea(const glm::mat4 &t_matrix) const { return 0.0f; }
 
 	friend std::ostream & operator << (std::ostream & os, const SceneNode & node);
 

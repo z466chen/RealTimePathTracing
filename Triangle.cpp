@@ -1,6 +1,7 @@
 #include "Triangle.hpp"
 #include "general.hpp"
 #include "UboConstructor.hpp"
+#include <glm/ext.hpp>
 
 Intersection Triangle::intersect(const Ray &ray) const {
 	Intersection result;
@@ -59,7 +60,14 @@ AABB Triangle::getAABB() const {
 	return result;
 }
 
-int Triangle::construct() const {
+float Triangle::getArea(const glm::mat4 &t_matrix) const {
+	glm::vec3 v1_trans = ptrans(t_matrix, *v1);
+	glm::vec3 v2_trans = ptrans(t_matrix, *v2);
+	glm::vec3 v3_trans = ptrans(t_matrix, *v3);
+	return glm::l2Norm(glm::cross(v2_trans - v1_trans, v3_trans - v1_trans)) * 0.5f;
+}
+
+int Triangle::construct(const glm::mat4 &t_matrix) const {
 	int id = UboConstructor::elem_arr.size();
 	UboConstructor::elem_arr.emplace_back(UboElement());
 	auto & ubo_elem = UboConstructor::elem_arr.back();

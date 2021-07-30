@@ -213,18 +213,16 @@ void UboConstructor::construct(
     {
         glGenBuffers(1, &m_ubo_light);
         glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_light);
-        glBufferData(GL_UNIFORM_BUFFER, 48*1024, NULL, GL_STATIC_DRAW);
+        glBufferData(GL_UNIFORM_BUFFER, 16*1024, NULL, GL_STATIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-        glBindBufferRange(GL_UNIFORM_BUFFER, 4, m_ubo_light, 0, 48*1024);
+        glBindBufferRange(GL_UNIFORM_BUFFER, 4, m_ubo_light, 0, 16*1024);
 
         glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_light);
 
         for (int i = 0; i < light_arr.size(); ++i) {
             auto &obj = light_arr[i];
-            glBufferSubData(GL_UNIFORM_BUFFER, i*48+0, 12, glm::value_ptr(obj.color));
-            glBufferSubData(GL_UNIFORM_BUFFER, i*48+16, 12, glm::value_ptr(obj.position));
-            glBufferSubData(GL_UNIFORM_BUFFER, i*48+32, 12, glm::value_ptr(obj.falloff));          
+            glBufferSubData(GL_UNIFORM_BUFFER, i*16+0, 16, glm::value_ptr(obj.oid_and_area));      
         }
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
         CHECK_GL_ERRORS;

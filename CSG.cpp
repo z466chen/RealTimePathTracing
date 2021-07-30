@@ -216,7 +216,11 @@ AABB CSGNode::getAABB() const {
     return result;
 }
 
-int CSGNode::construct() const {
+float CSGNode::getArea(const glm::mat4 &t_matrix) const {
+    return 0.0f;
+}
+
+int CSGNode::construct(const glm::mat4 &t_matrix) const {
     int id = UboConstructor::obj_arr.size();
     UboConstructor::obj_arr.emplace_back(UboObject());
     UboConstructor::obj_arr[id].mat_id = -1;
@@ -225,12 +229,12 @@ int CSGNode::construct() const {
     int right = -1;
     AABB bbox;
     
-    left = children.front()->construct();
+    left = children.front()->construct(t_matrix);
     if (children.front()->m_nodeType != NodeType::CSGNode) {
         UboConstructor::obj_arr[left].t_matrix = t_matrices[0].first;
         UboConstructor::obj_arr[left].inv_t_matrix = t_matrices[0].second;
     }
-    right = children.back()->construct();
+    right = children.back()->construct(t_matrix);
     if (children.back()->m_nodeType != NodeType::CSGNode) {
         UboConstructor::obj_arr[right].t_matrix = t_matrices[1].first;
         UboConstructor::obj_arr[right].inv_t_matrix = t_matrices[1].second;

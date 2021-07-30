@@ -45,7 +45,7 @@ Mesh::Mesh( const std::string& fname )
 	for (auto &trig: m_faces) {
 		triangles.emplace_back(std::make_pair(&trig, std::make_pair(glm::mat4(1.0f), glm::mat4(1.0f))));
 	}
-	bvh = std::make_unique<BVH>(std::move(triangles));
+	bvh = std::make_unique<BVH>(std::move(triangles), 1);
 }
 
 std::ostream& operator<<(std::ostream& out, const Mesh& mesh)
@@ -85,7 +85,15 @@ AABB Mesh::getAABB() const {
 	return bvh->getAABB();
 }
 
-int Mesh::construct() const {
+float Mesh::getArea(const glm::mat4 &t_matrix) const {
+	int area  = 0.0f;
+	for (auto &trig:m_faces) {
+		area += trig.getArea(t_matrix);
+	}
+	return area;
+}
+
+int Mesh::construct(const glm::mat4 &t_matrix) const {
     int id = UboConstructor::obj_arr.size();
     UboConstructor::obj_arr.emplace_back(UboObject());
     
@@ -94,7 +102,7 @@ int Mesh::construct() const {
     UboConstructor::obj_arr[id].obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x); 
     UboConstructor::obj_arr[id].obj_aabb_3 = glm::vec2(bbox.upper_bound.y, bbox.upper_bound.z); 
     
-	int bvh_id = bvh->construct();
+	int bvh_id = bvh->construct(t_matrix);
     UboConstructor::obj_arr[id].obj_data_1 = glm::vec2(bvh_id, vertex_offset);
     UboConstructor::obj_arr[id].obj_type = (int)UboPrimitiveType::MESH;
     return id;

@@ -59,6 +59,8 @@
 #include "Material.hpp"
 #include "PhongMaterial.hpp"
 #include "SolidMaterial.hpp"
+#include "LightMaterial.hpp"
+#include "MicroFacetMaterial.hpp"
 // #include "Scene.hpp"
 // #include "Renderer.hpp"
 #include "A5.hpp"
@@ -664,6 +666,45 @@ int gr_solid_cmd(lua_State* L)
   return 1;
 }
 
+extern "C"
+int gr_lightmat_cmd(lua_State* L)
+{
+  GRLUA_DEBUG_CALL;
+
+  gr_material_ud* data = (gr_material_ud*)lua_newuserdata(L, sizeof(gr_material_ud));
+  data->material = 0;
+  
+  double emission[3];
+  get_tuple(L, 1, emission, 3);
+
+  data->material = new LightMaterial(glm::vec3(emission[0], emission[1], emission[2]));
+
+  luaL_newmetatable(L, "gr.material");
+  lua_setmetatable(L, -2);
+  return 1;
+}
+
+extern "C"
+int gr_microfacet_cmd(lua_State* L)
+{
+  GRLUA_DEBUG_CALL;
+
+  gr_material_ud* data = (gr_material_ud*)lua_newuserdata(L, sizeof(gr_material_ud));
+  data->material = 0;
+  
+  double f0[3];
+  get_tuple(L, 1, f0, 3);
+
+  double h_alpha = luaL_checknumber(L, 2);
+
+  data->material = new MicroFacetMaterial(glm::vec3(f0[0], f0[1],f0[2]), h_alpha);
+
+  luaL_newmetatable(L, "gr.material");
+  lua_setmetatable(L, -2);
+  
+  return 1;
+}
+
 // Add a Child to a node
 extern "C"
 int gr_node_add_child_cmd(lua_State* L)
@@ -699,9 +740,17 @@ int gr_node_set_material_cmd(lua_State* L)
   luaL_argcheck(L, self != 0, 1, "Geometry node expected");
   
   gr_material_ud* matdata = (gr_material_ud*)luaL_checkudata(L, 2, "gr.material");
-  if (!matdata) {
-    matdata = (gr_material_ud*)luaL_checkudata(L, 2, "gr.solid");
-  }
+  // if (!matdata) {
+  //   std::cout << "ddfadfasfadfa" << std::endl;
+  //   matdata = (gr_material_ud*)luaL_checkudata(L, 2, "gr.solid");
+  // }
+  // if (!matdata) {
+  //   std::cout << "dfadfa" << std::endl;
+  //   matdata = (gr_material_ud*)luaL_checkudata(L, 2, "gr.lightmat");
+  // }
+  // if (!matdata) {
+  //   matdata = (gr_material_ud*)luaL_checkudata(L, 2, "gr.microfacet");
+  // }
   luaL_argcheck(L, matdata != 0, 2, "Material expected");
 
   Material* material = matdata->material;
@@ -811,6 +860,8 @@ static const luaL_Reg grlib_functions[] = {
   {"joint", gr_joint_cmd},
   {"material", gr_material_cmd},
   {"solid", gr_solid_cmd},
+  {"lightmat", gr_lightmat_cmd},
+  {"microfacet", gr_microfacet_cmd},
   // New for assignment 4
   {"cube", gr_cube_cmd},
   {"nh_sphere", gr_nh_sphere_cmd},

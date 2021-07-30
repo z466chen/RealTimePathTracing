@@ -35,11 +35,14 @@ private:
         bool is_mouse_pos_init = false;
         glm::vec2 mouse_pos_prev = glm::vec2(0.0f);
         float prev_time_app = 0.0f;
+        float prev_time_mouse = 0.0f;
     } state;
 
     Camera camera;
     glm::vec3 ambient;
     int bvh_id;
+
+    float total_area;
 
     ShaderProgram m_rt_shader;
 
@@ -70,15 +73,14 @@ private:
     GLuint ubvhMeshTex;
     GLuint ucamera;
 
-
     GLuint uambient;
     GLuint unol;
     GLuint uwsize;
+    GLuint utotalArea;
+    GLuint useed;
 
     GLuint m_bg_texture;
     GLuint ubackground;
-    
-    GLuint uinitialized = false;
 
     // initialization functions
     void init_shaders();

@@ -29,11 +29,11 @@ std::ostream& operator<<(std::ostream& out, const Light& l)
   return out;
 }
 
-int Light::construct() const {
-  int id = UboConstructor::light_arr.size();
-  UboConstructor::light_arr.emplace_back(UboLight());
-  UboConstructor::light_arr[id].color = colour;
-  UboConstructor::light_arr[id].position = position;
-  UboConstructor::light_arr[id].falloff = glm::vec3(falloff[0],falloff[1],falloff[2]);
-  return id;
+int Light::construct(const glm::mat4 &t_matrix) const {
+  // int id = UboConstructor::light_arr.size();
+  // UboConstructor::light_arr.emplace_back(UboLight());
+  // UboConstructor::light_arr[id].color = colour;
+  // UboConstructor::light_arr[id].position = position;
+  // UboConstructor::light_arr[id].falloff = glm::vec3(falloff[0],falloff[1],falloff[2]);
+  // return id;
 }

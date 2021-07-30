@@ -14,7 +14,7 @@ struct Light {
   glm::vec3 position;
   double falloff[3];
 
-  int construct() const;
+  int construct(const glm::mat4 &t_matrix) const;
 };
 
 std::ostream& operator<<(std::ostream& out, const Light& l);

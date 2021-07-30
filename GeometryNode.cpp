@@ -51,9 +51,18 @@ AABB GeometryNode::getAABB() const {
 	return m_primitive->getAABB();
 }
 
-int GeometryNode::construct() const {
-	int pid = m_primitive->construct();
+int GeometryNode::construct(const glm::mat4 &t_matrix) const {
+	int pid = m_primitive->construct(t_matrix);
 	int mid = m_material->construct();
 	UboConstructor::obj_arr[pid].mat_id = mid;
+	if (m_material->type == MaterialType::LIGHT) {
+		UboConstructor::light_arr.emplace_back(UboLight());
+		UboConstructor::light_arr.back().oid_and_area = glm::vec4(float(pid),getArea(t_matrix),0,0);
+	}
+	UboConstructor::obj_arr[pid].obj_aabb_3.x = getArea(t_matrix);
 	return pid;
+}
+
+float GeometryNode::getArea(const glm::mat4 &t_matrix) const {
+	return m_primitive->getArea(t_matrix);
 }

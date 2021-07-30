@@ -13,6 +13,23 @@ const NonhierSphere Sphere::content = NonhierSphere(glm::vec3(0,0,0), 1.0f);
 const NonhierBox Cube::content = NonhierBox(glm::vec3(0,0,0), 1.0f);
 
 
+inline static double hypergeometric( double a, double b, double c, double x , double tolerance)
+{
+   double term = a * b * x / c;
+   double value = 1.0 + term;
+   int n = 1;
+
+   while ( abs( term ) > tolerance )
+   {
+      a++, b++, c++, n++;
+      term *= a * b * x / c / n;
+      value += term;
+   }
+
+   return value;
+}
+
+
 Primitive::~Primitive()
 {
 }
@@ -60,7 +77,20 @@ AABB NonhierSphere::getAABB() const {
     return result;
 }
 
-int NonhierSphere::construct() const {
+inline static float elipsoidSurface(float a, float b, float c) {
+    float p = 1.6075;
+    return 4 * M_PI * pow(0.3333333 * (pow(a*b,p) + pow(a*c,p) + pow(b*c,p)),1.0f/p);
+}
+
+float NonhierSphere::getArea(const glm::mat4 &t_matrix) const {
+    float a = t_matrix[0].length()*m_radius;
+    float b = t_matrix[1].length()*m_radius;
+    float c = t_matrix[2].length()*m_radius;
+    
+    return elipsoidSurface(a,b,c);
+}
+
+int NonhierSphere::construct(const glm::mat4 &t_matrix) const {
     int id = UboConstructor::obj_arr.size();
     UboConstructor::obj_arr.emplace_back(UboObject());
     auto &ubo_obj = UboConstructor::obj_arr.back();
@@ -173,7 +203,18 @@ AABB NonhierBox::getAABB() const {
     return result;
 }
 
-int NonhierBox::construct() const {
+inline static float boxSurface(float a, float b, float c) {
+    return 2*(a*b + b*c + c*a);
+}
+
+float NonhierBox::getArea(const glm::mat4 &t_matrix) const {
+    float a = t_matrix[0].length()*m_size;
+    float b = t_matrix[1].length()*m_size;
+    float c = t_matrix[2].length()*m_size;
+    return boxSurface(a,b,c);
+}
+
+int NonhierBox::construct(const glm::mat4 &t_matrix) const {
     int id = UboConstructor::obj_arr.size();
     UboConstructor::obj_arr.emplace_back(UboObject());
     auto &ubo_obj = UboConstructor::obj_arr.back();
@@ -207,8 +248,12 @@ AABB Sphere::getAABB() const {
     return content.getAABB();
 }
 
-int Sphere::construct() const {
-    return content.construct();
+float Sphere::getArea(const glm::mat4 &t_matrix) const {
+    return content.getArea(t_matrix);
+}
+
+int Sphere::construct(const glm::mat4 &t_matrix) const {
+    return content.construct(t_matrix);
 }
 
 Sphere::~Sphere()
@@ -229,8 +274,12 @@ AABB Cube::getAABB() const {
     return content.getAABB();
 } 
 
-int Cube::construct() const {
-    return content.construct();
+float Cube::getArea(const glm::mat4 &t_matrix) const {
+    return content.getArea(t_matrix);
+}
+
+int Cube::construct(const glm::mat4 &t_matrix) const {
+    return content.construct(t_matrix);
 }
 
 Cube::~Cube()
@@ -358,7 +407,7 @@ AABB RoundBox::getAABB() const {
     return result;
 }
 
-int RoundBox::construct() const {
+int RoundBox::construct(const glm::mat4 &t_matrix) const {
     int id = UboConstructor::obj_arr.size();
     UboConstructor::obj_arr.emplace_back(UboObject());
     auto &ubo_obj = UboConstructor::obj_arr.back();
@@ -372,6 +421,26 @@ int RoundBox::construct() const {
     ubo_obj.obj_data_2 = glm::vec2(size.z, radius);
     ubo_obj.obj_type = (int)UboPrimitiveType::ROUNDBOX;
     return id;
+}
+
+inline static float cylinderSurface(float a, float b, float h) {
+    return M_PI * (3*(a+b) - sqrt((3*a+b)*(a+3*b))) * h;
+} 
+
+float RoundBox::getArea(const glm::mat4 &t_matrix) const {
+    float a = t_matrix[0].length()*size.x;
+    float b = t_matrix[1].length()*size.y;
+    float c = t_matrix[2].length()*size.z;
+
+    float ar = t_matrix[0].length()*radius;
+    float br = t_matrix[1].length()*radius;
+    float cr = t_matrix[2].length()*radius;
+
+    
+    
+    return boxSurface(a,b,c) + cylinderSurface(ar, br, c) + 
+        cylinderSurface(br, cr, a) + cylinderSurface(cr, ar, b) + 
+        elipsoidSurface(ar, br, cr);
 }
 
 RoundBox::~RoundBox() {
@@ -489,7 +558,14 @@ AABB Cylinder::getAABB() const {
     return result;
 }
 
-int Cylinder::construct() const {
+float Cylinder::getArea(const glm::mat4 &t_matrix) const {
+    float a = t_matrix[0].length()*radius;
+    float b = t_matrix[1].length()*height;
+    float c = t_matrix[2].length()*radius;
+    return cylinderSurface(a, c, b);
+}
+
+int Cylinder::construct(const glm::mat4 &t_matrix) const {
     int id = UboConstructor::obj_arr.size();
     UboConstructor::obj_arr.emplace_back(UboObject());
     auto &ubo_obj = UboConstructor::obj_arr.back();
@@ -615,7 +691,15 @@ AABB Torus::getAABB() const {
     return result;
 }
 
-int Torus::construct() const {
+float Torus::getArea(const glm::mat4 &t_matrix) const {
+    float a = t_matrix[0].length()*parameters.x;
+    float b = t_matrix[1].length()*parameters.x;
+    float c = t_matrix[2].length()*parameters.y;
+
+    return 4*M_PI*M_PI*a*c*hypergeometric(0.5f,0.5f, 1.0f, 1.0f - (b*b)/(a*a), 0.00001/(a*c));
+}
+
+int Torus::construct(const glm::mat4 &t_matrix) const {
     int id = UboConstructor::obj_arr.size();
     UboConstructor::obj_arr.emplace_back(UboObject());
     auto &ubo_obj = UboConstructor::obj_arr.back();

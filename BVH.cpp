@@ -149,6 +149,13 @@ BVH::BVH(std::vector<object_reference> &&objs) {
     this->root = std::unique_ptr<BVHNode>(root_raw);
 }
 
+BVH::BVH(std::vector<object_reference> &&objs, int LeafNodePrimitiveLimit) {
+    this->LeafNodePrimitiveLimit = LeafNodePrimitiveLimit;
+    priority = 1;
+    BVHNode *root_raw = __recursiveBuild(std::move(objs), 0);
+    this->root = std::unique_ptr<BVHNode>(root_raw);
+}
+
 std::vector<object_reference> BVH::__constructObjectList(SceneNode *root) {
     std::queue<std::pair<SceneNode *, std::pair<glm::mat4, glm::mat4>>> q;
     q.emplace(root, std::make_pair(glm::mat4(1.0f), glm::mat4(1.0f)));
@@ -248,7 +255,7 @@ AABB BVH::getAABB() const {
 }
 
 
-int BVH::__constructUbo(const BVH::BVHNode *node) const {
+int BVH::__constructUbo(const BVH::BVHNode *node, const glm::mat4 &t_matrix) const {
     if (!node) return -1;
 
     if (priority == 0) {
@@ -267,8 +274,8 @@ int BVH::__constructUbo(const BVH::BVHNode *node) const {
         UboConstructor::bvh_arr[id].bvh_left = -1;
         UboConstructor::bvh_arr[id].bvh_right = -1;
 
-        UboConstructor::bvh_arr[id].bvh_left = __constructUbo(node->left.get());
-        UboConstructor::bvh_arr[id].bvh_right = __constructUbo(node->right.get());
+        UboConstructor::bvh_arr[id].bvh_left = __constructUbo(node->left.get(), t_matrix);
+        UboConstructor::bvh_arr[id].bvh_right = __constructUbo(node->right.get(), t_matrix);
 
         float *temp[4] = {
             &UboConstructor::bvh_arr[id].obj_id_1, 
@@ -278,7 +285,7 @@ int BVH::__constructUbo(const BVH::BVHNode *node) const {
         };
 
         for (int i = 0; i < node->objs.size(); ++i) {
-            *temp[i] = node->objs[i].first->construct();
+            *temp[i] = node->objs[i].first->construct(node->objs[i].second.first);
             UboConstructor::obj_arr[int(*temp[i])].t_matrix = node->objs[i].second.first;
             UboConstructor::obj_arr[int(*temp[i])].inv_t_matrix = node->objs[i].second.second;
         }
@@ -294,28 +301,37 @@ int BVH::__constructUbo(const BVH::BVHNode *node) const {
         UboConstructor::bvh_mesh_arr[id].obj_id_1 = -1;
         UboConstructor::bvh_mesh_arr[id].obj_id_2 = -1;
         UboConstructor::bvh_mesh_arr[id].obj_id_3 = -1;
-        UboConstructor::bvh_mesh_arr[id].obj_id_4 = -1;
 
         UboConstructor::bvh_mesh_arr[id].bvh_left = -1;
         UboConstructor::bvh_mesh_arr[id].bvh_right = -1;
 
-        UboConstructor::bvh_mesh_arr[id].bvh_left = __constructUbo(node->left.get());
-        UboConstructor::bvh_mesh_arr[id].bvh_right = __constructUbo(node->right.get());
+        int left_id = __constructUbo(node->left.get(), t_matrix);
+        UboConstructor::bvh_mesh_arr[id].bvh_left = left_id;
+        int right_id = __constructUbo(node->right.get(), t_matrix);
+        UboConstructor::bvh_mesh_arr[id].bvh_right = right_id;
 
-        float *temp[4] = {
+        if (left_id >= 0 && right_id >= 0) {
+            UboConstructor::bvh_mesh_arr[id].obj_id_4 = UboConstructor::bvh_arr[left_id].obj_id_4 + 
+                UboConstructor::bvh_arr[right_id].obj_id_4;
+        } else {
+            float *temp[4] = {
             &UboConstructor::bvh_mesh_arr[id].obj_id_1, 
             &UboConstructor::bvh_mesh_arr[id].obj_id_2, 
-            &UboConstructor::bvh_mesh_arr[id].obj_id_3, 
+            &UboConstructor::bvh_mesh_arr[id].obj_id_3,
             &UboConstructor::bvh_mesh_arr[id].obj_id_4
-        };
+            };
 
-        for (int i = 0; i < node->objs.size(); ++i) {
-            *temp[i] = node->objs[i].first->construct();
+            float area = 0.0f;
+            for (int i = 0; i < node->objs.size(); ++i) {
+                *temp[i] = node->objs[i].first->construct(t_matrix);
+                area += node->objs[i].first->getArea(t_matrix);
+            }
+            UboConstructor::bvh_mesh_arr[id].obj_id_4 = area;
         }
         return id;
     }
 }
 
-int BVH::construct() const {
-    __constructUbo(root.get());
+int BVH::construct(const glm::mat4 &t_matrix) const {
+    __constructUbo(root.get(), t_matrix);
 }

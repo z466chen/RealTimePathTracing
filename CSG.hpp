@@ -32,5 +32,7 @@ public:
     
     virtual AABB getAABB() const;
 
-    virtual int construct() const;
+    virtual int construct(const glm::mat4 &t_matrix) const;
+
+    virtual float getArea(const glm::mat4 &t_matrix) const;
 };

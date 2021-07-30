@@ -9,5 +9,6 @@ public:
     virtual ~Object() {};
     virtual Intersection intersect(const Ray &ray) const = 0;
     virtual AABB getAABB() const = 0;
-    virtual int construct() const = 0;
+    virtual int construct(const glm::mat4 &t_matrix) const = 0;
+    virtual float getArea(const glm::mat4 &t_matrix) const = 0;
 };

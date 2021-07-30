@@ -21,7 +21,7 @@ class BVH {
     class BVHNode {
     public:
         AABB bbox;
-        
+        float area = 0.0f;
         std::vector<object_reference> objs;
 
         std::unique_ptr<BVHNode> left = nullptr;
@@ -31,22 +31,24 @@ class BVH {
     static std::unique_ptr<Splitter> splitter;
     std::unique_ptr<BVHNode> root;
 
-    static const int LeafNodePrimitiveLimit = 4;
+    int LeafNodePrimitiveLimit = 4;
 
     BVHNode *__recursiveBuild(std::vector<object_reference> &&objs, int depth) const;
 
     std::vector<object_reference> __constructObjectList(SceneNode *root);
 
-    int __constructUbo(const BVHNode *node) const;
+    int __constructUbo(const BVHNode *node, const glm::mat4 &t_matrix) const;
 
     int priority = 0;
 public:
     BVH(SceneNode *root);
     BVH(std::vector<object_reference> &&objs);
+    BVH(std::vector<object_reference> &&objs, int LeafNodePrimitiveLimit);
+    
 
     double sdf(const glm::vec3 &t) const;
     Intersection intersect(const Ray &ray) const;
     AABB getAABB() const;
 
-    int construct() const;
+    int construct(const glm::mat4 &t_matrix) const;
 };

@@ -5,7 +5,8 @@
 // List of supported material type
 enum class MaterialType {
   DIFFUSE = 0,
-  SPECULAR
+  SPECULAR,
+  LIGHT
 };
 
 class MaterialInfo {

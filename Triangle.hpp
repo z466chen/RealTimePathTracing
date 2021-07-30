@@ -30,5 +30,6 @@ public:
 	virtual Intersection intersect(const Ray &ray) const;
 	virtual double sdf(const glm::vec3 &t) const;
 	virtual AABB getAABB() const;
-	virtual int construct() const;
+	virtual float getArea(const glm::mat4 &t_matrix) const;
+	virtual int construct(const glm::mat4 &t_matrix) const;
 };
