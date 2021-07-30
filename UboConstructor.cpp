@@ -20,8 +20,8 @@ static float getSquareSize(float size) {
 
 void UboConstructor::calcDefines() {
     defines.obj_texture_size = fmax(1 << (int)fmax(getSquareSize(obj_arr.size()*46), 0.0f), 64);
-    defines.vert_texture_size = fmax(1 << (int)fmax(getSquareSize(vert_arr.size()*3), 0.0f), 64);
-    defines.elem_texture_size = fmax(1 << (int)fmax(getSquareSize(elem_arr.size()*3), 0.0f), 64);
+    defines.vert_texture_size = fmax(1 << (int)fmax(getSquareSize(vert_arr.size()), 0.0f), 64);
+    defines.elem_texture_size = fmax(1 << (int)fmax(getSquareSize(elem_arr.size()), 0.0f), 64);
     defines.bvh_texture_size = 1;
     if (bvh_arr.size() > 1024) {
         defines.bvh_texture_size = fmax(1 << (int)getSquareSize((bvh_arr.size() - 1024)*12), 64);
@@ -40,6 +40,17 @@ static void __constructTexture(GLuint &id, void *arr, int mem_size, int texture_
     
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, texture_size, 
         texture_size, 0, GL_RED,  GL_FLOAT, (void *)temp);
+    glGenerateMipmap(GL_TEXTURE_2D);
+}
+
+static void __constructTexture3Packed(GLuint &id, void *arr, int mem_size, int texture_size) {
+    float temp[texture_size*texture_size*3] = {0};
+    memcpy(temp,arr,mem_size);
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, texture_size, 
+        texture_size, 0, GL_RGB,  GL_FLOAT, (void *)temp);
     glGenerateMipmap(GL_TEXTURE_2D);
 }
 
@@ -69,7 +80,7 @@ void UboConstructor::construct(
         const int texture_size = defines.vert_texture_size;
 
         glActiveTexture(GL_TEXTURE1);
-        __constructTexture(m_ubo_vert, (void*)&vert_arr[0], 
+        __constructTexture3Packed(m_ubo_vert, (void*)&vert_arr[0], 
             12*vert_arr.size(), texture_size);
         CHECK_GL_ERRORS;
     }
@@ -78,7 +89,7 @@ void UboConstructor::construct(
         const int texture_size = defines.elem_texture_size;
 
         glActiveTexture(GL_TEXTURE2);
-        __constructTexture(m_ubo_elem, (void*)&elem_arr[0], 
+        __constructTexture3Packed(m_ubo_elem, (void*)&elem_arr[0], 
             12*elem_arr.size(), texture_size);
         CHECK_GL_ERRORS;
     }
@@ -210,7 +221,7 @@ void UboConstructor::construct(
         CHECK_GL_ERRORS;
     }
 
-    {
+  {
         glGenBuffers(1, &m_ubo_light);
         glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_light);
         glBufferData(GL_UNIFORM_BUFFER, 16*1024, NULL, GL_STATIC_DRAW);

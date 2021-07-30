@@ -242,6 +242,10 @@ float getFloatFromTexture(in sampler2D texture, int offset, int tex_size) {
     return texelFetch(texture, ivec2(offset%tex_size,offset/tex_size), 0).r;
 }
 
+vec3 getVec3FromTexture3Packed(in sampler2D texture, int offset, int tex_size) {
+    return texelFetch(texture, ivec2(offset%tex_size,offset/tex_size), 0).rgb;
+}
+
 mat4 getMat4FromTexture(in sampler2D texture, int offset, int tex_size) {
     vec4 c1 = getVec4FromTexture(texture, offset, tex_size);
     vec4 c2 = getVec4FromTexture(texture, offset+4, tex_size);
@@ -402,7 +406,7 @@ Intersection traverseTriangle(in Ray ray, in vec3 v0, in vec3 v1, in vec3 v2) {
     result.intersects = true;
     result.t = t;
     result.position = result.t * ray.rd + ray.ro;
-    result.normal = normalize(cross(v1v0,v2v0));
+    result.normal = normalize(n);
     return result;
 }
 
@@ -454,19 +458,20 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
             int oid = localNode.obj_ids[i];
             if (oid >= 0) {
                 
-                int i1 = int(getFloatFromTexture(elem_tex, 3*oid,ELEM_TEXTURE_SIZE)) + vert_offset;
-                int i2 = int(getFloatFromTexture(elem_tex, 3*oid+1,ELEM_TEXTURE_SIZE)) + vert_offset;
-                int i3 = int(getFloatFromTexture(elem_tex, 3*oid+2,ELEM_TEXTURE_SIZE)) + vert_offset;
+                vec3 atemp = getVec3FromTexture3Packed(elem_tex, oid,ELEM_TEXTURE_SIZE);
+                int i1 = int(atemp.x) + vert_offset;
+                int i2 = int(atemp.y) + vert_offset;
+                int i3 = int(atemp.z) + vert_offset;
                 
-                vec3 v1 = getVec3FromTexture(vert_tex, 3*i1, VERT_TEXTURE_SIZE);
-                vec3 v2 = getVec3FromTexture(vert_tex, 3*i2, VERT_TEXTURE_SIZE);
-                vec3 v3 = getVec3FromTexture(vert_tex, 3*i3, VERT_TEXTURE_SIZE);
+                vec3 v1 = getVec3FromTexture3Packed(vert_tex, i1, VERT_TEXTURE_SIZE);
+                vec3 v2 = getVec3FromTexture3Packed(vert_tex, i2, VERT_TEXTURE_SIZE);
+                vec3 v3 = getVec3FromTexture3Packed(vert_tex, i3, VERT_TEXTURE_SIZE);
 
                 Intersection temp = traverseTriangle(ray, v1, v2, v3);
 
                 if (temp.intersects && temp.t < result.t) {
                     result = temp;
-                }                
+                }        
             }
         }
         bvh_mesh_stack[end%BVH_MESH_STACK_SIZE] = localNode.left_id;
@@ -530,26 +535,28 @@ void sampleBVHMesh(int mesh_bvh_id, int vert_offset,
             int oid = localNode.obj_ids[i];
             if (oid >= 0) {
                 
-                int i1 = int(getFloatFromTexture(elem_tex, 3*oid,ELEM_TEXTURE_SIZE)) + vert_offset;
-                int i2 = int(getFloatFromTexture(elem_tex, 3*oid+1,ELEM_TEXTURE_SIZE)) + vert_offset;
-                int i3 = int(getFloatFromTexture(elem_tex, 3*oid+2,ELEM_TEXTURE_SIZE)) + vert_offset;
+                vec3 temp = getVec3FromTexture3Packed(elem_tex, oid,ELEM_TEXTURE_SIZE);
+                int i1 = int(temp.x) + vert_offset;
+                int i2 = int(temp.y) + vert_offset;
+                int i3 = int(temp.z) + vert_offset;
                 
-                vec3 v1 = getVec3FromTexture(vert_tex, 3*i1, VERT_TEXTURE_SIZE);
-                vec3 v2 = getVec3FromTexture(vert_tex, 3*i2, VERT_TEXTURE_SIZE);
-                vec3 v3 = getVec3FromTexture(vert_tex, 3*i3, VERT_TEXTURE_SIZE);
+                vec3 v1 = getVec3FromTexture3Packed(vert_tex, i1,ELEM_TEXTURE_SIZE);
+                vec3 v2 = getVec3FromTexture3Packed(vert_tex, i2,ELEM_TEXTURE_SIZE);
+                vec3 v3 = getVec3FromTexture3Packed(vert_tex, i3,ELEM_TEXTURE_SIZE);
                 
                 v1 = ptrans(t_matrix,v1);
                 v2 = ptrans(t_matrix,v2);
                 v3 = ptrans(t_matrix,v3);
 
-                float tarea = length(cross(v2 - v1, v3 - v1)) * 0.5f;   
+                vec3 n = cross(v2 - v1, v3 - v1);
+                float tarea = length(n) * 0.5f;   
                 currentArea += tarea;
                 if (sample < currentArea) {
                     // found!
                     float x = sqrt(get_random_float());
                     float y = get_random_float();
                     sampleCoord = v1 * (1.0f - x) + v2 * (x * (1.0f - y)) + v3 * (x * y);
-                    sampleNormal = cross(v2 - v1, v3 - v1);
+                    sampleNormal = normalize(n);
                     return;
                 }
             }
@@ -603,13 +610,14 @@ float bvhMeshGetSdf(in vec3 t, int mesh_bvh_id, int vert_offset) {
             int oid = localNode.obj_ids[i];
             if (oid >= 0) {
                 
-                int i1 = int(getFloatFromTexture(elem_tex, 3*oid,ELEM_TEXTURE_SIZE)) + vert_offset;
-                int i2 = int(getFloatFromTexture(elem_tex, 3*oid+1,ELEM_TEXTURE_SIZE)) + vert_offset;
-                int i3 = int(getFloatFromTexture(elem_tex, 3*oid+2,ELEM_TEXTURE_SIZE)) + vert_offset;
+                vec3 temp = getVec3FromTexture3Packed(elem_tex, oid,ELEM_TEXTURE_SIZE);
+                int i1 = int(temp.x) + vert_offset;
+                int i2 = int(temp.y) + vert_offset;
+                int i3 = int(temp.z) + vert_offset;
                 
-                vec3 v1 = getVec3FromTexture(vert_tex, 3*i1, VERT_TEXTURE_SIZE);
-                vec3 v2 = getVec3FromTexture(vert_tex, 3*i2, VERT_TEXTURE_SIZE);
-                vec3 v3 = getVec3FromTexture(vert_tex, 3*i3, VERT_TEXTURE_SIZE);
+                vec3 v1 = getVec3FromTexture3Packed(vert_tex, i1,ELEM_TEXTURE_SIZE);
+                vec3 v2 = getVec3FromTexture3Packed(vert_tex, i2,ELEM_TEXTURE_SIZE);
+                vec3 v3 = getVec3FromTexture3Packed(vert_tex, i3,ELEM_TEXTURE_SIZE);
 
                 result = min(result, triangleGetSdf(t, v1, v2, v3));             
             }
@@ -704,14 +712,14 @@ MaterialInfo getMaterialInfo(in Object obj, in vec3 t) {
             info.isEmission = false;
             break;
         }
-        case 1: {
-            info.kd = vec3(node.mat_data_1.xy, node.mat_data_2.x);
-            info.ks = vec3(node.mat_data_2.y, node.mat_data_3.xy);
-            info.ior = node.mat_data_4.x;
-            info.shininess = node.mat_data_4.y;
-            info.isEmission = false;
-            break;
-        }
+        // case 1: {
+        //     info.kd = vec3(node.mat_data_1.xy, node.mat_data_2.x);
+        //     info.ks = vec3(node.mat_data_2.y, node.mat_data_3.xy);
+        //     info.ior = node.mat_data_4.x;
+        //     info.shininess = node.mat_data_4.y;
+        //     info.isEmission = false;
+        //     break;
+        // }
         case 2: {
             AABB bbox = obj.bbox;
             vec3 size = max(bbox.upper_bound - bbox.lower_bound, EPSILON);
@@ -727,14 +735,14 @@ MaterialInfo getMaterialInfo(in Object obj, in vec3 t) {
             info.isEmission = false;
             break;
         }
-        case 3: {
-            info.kd = vec3(node.mat_data_1.xy, node.mat_data_2.x);
-            info.ks = vec3(node.mat_data_2.y, node.mat_data_3.xy);
-            info.ior = node.mat_data_4.x;
-            info.shininess = node.mat_data_4.y;
-            info.isEmission = false;
-            break;
-        }
+        // case 3: {
+        //     info.kd = vec3(node.mat_data_1.xy, node.mat_data_2.x);
+        //     info.ks = vec3(node.mat_data_2.y, node.mat_data_3.xy);
+        //     info.ior = node.mat_data_4.x;
+        //     info.shininess = node.mat_data_4.y;
+        //     info.isEmission = false;
+        //     break;
+        // }
         // Microfacet
         case 4: {
             info.ks = vec3(node.mat_data_1.xy, node.mat_data_2.x);
@@ -1256,6 +1264,7 @@ Intersection objTraverse(int oid, in Object obj, in Ray ray) {
             int vertex_offset = int(obj.obj_data_1.y);
             result = bvhMeshTraverse(ray, bvh_mesh_id, vertex_offset);
             result.m = getMaterialInfo(obj, result.position);
+            result.intersects = true;
             break;
         }
         case 6: {
@@ -1378,7 +1387,7 @@ Intersection bvhTraverse(in Ray ray) {
                     result = temp;
                     result.position = ptrans(obj.t_matrix, result.position);
                     result.normal = vtrans(transpose(obj.inv_t_matrix), temp.normal);
-                }                
+                }    
             }
         }
 

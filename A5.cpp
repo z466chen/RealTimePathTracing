@@ -10,8 +10,11 @@
 
 #include "cs488-framework/GlErrorCheck.hpp"
 
+#define SPP 1
+
 const float CAMERA_TRANSLATION_SPEED = 200.0f;
 const float CAMERA_ROTATE_SPEED = 9.0f;
+
 
 CS488Window * A5::window = nullptr;
 
@@ -209,7 +212,7 @@ void A5::init_uniforms() {
 
 void A5::init() {
 	glClearColor( ambient.x, ambient.y, ambient.z, 1.0 );
-	// glfwWindowHint(GLFW_SAMPLES, 16);
+	// glfwWindowHint(GLFW_SAMPLES, 32);
 	// glEnable(GL_MULTISAMPLE);
     init_shaders();
 	m_rt_shader.enable();
@@ -331,7 +334,9 @@ void A5::draw() {
 
 
 		glBindVertexArray(m_vao_quad);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
+		for (int i = 0; i < SPP; ++i) {
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+		}
 		CHECK_GL_ERRORS;
 	m_rt_shader.disable();
 }

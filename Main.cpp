@@ -20,5 +20,5 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  CS488Window::launch( argc, argv, A5::window, 1024, 1024, "W21 Assignment 5" );
+  CS488Window::launch( argc, argv, A5::window, 1024, 768, "W21 Assignment 5" );
 }
