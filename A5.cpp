@@ -293,8 +293,8 @@ void A5::draw() {
 		glUniform1i(unol, size);
 		glUniform2f(uwsize,m_framebufferWidth, m_framebufferHeight);
 		// generate random seeds
-		float time = 1.0f;
-		glUniform1fv(useed, 1, &time);
+		glm::vec4 time = glm::vec4(glfwGetTime(), 0,0,0);
+		glUniform4fv(useed, 1, glm::value_ptr(time));
 		glUniform1fv(utotalArea, 1, &total_area);
 
 		glActiveTexture(GL_TEXTURE0);

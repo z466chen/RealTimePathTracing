@@ -46,9 +46,14 @@ public:
     virtual void split(std::vector<object_reference> && source, int depth,
         std::vector<object_reference> &left, 
         std::vector<object_reference> &right) const {
+
+        float total_area = source[0].first->getArea(source[0].second.first);
         AABB bbox = source[0].first->getAABB().transform(source[0].second.first);
-        for (auto obj:source) {
+        for (int i = 1; i < source.size(); ++i) {
+            auto &obj = source[i];
             bbox = bbox + obj.first->getAABB().transform(obj.second.first);
+
+            total_area += obj.first->getArea(obj.second.first);
         }
 
         glm::vec3 size = bbox.upper_bound - bbox.lower_bound;
@@ -60,7 +65,7 @@ public:
             float bin_size = size[i]/number_of_bins;
             for (int b = 1; b < number_of_bins; ++b) {
                 
-                float split_plane = bbox.lower_bound[i] + bin_size*i;
+                float split_plane = bbox.lower_bound[i] + bin_size*b;
 
                 int reserve = 0;
                 float left_s = 0.0f;
@@ -109,6 +114,88 @@ public:
     };
 };
 
+
+class SAHSplitter: public Splitter {
+public:
+    virtual ~SAHSplitter() {};
+
+    virtual void split(std::vector<object_reference> && source, int depth,
+        std::vector<object_reference> &left, 
+        std::vector<object_reference> &right) const {
+        
+        AABB bbox = source[0].first->getAABB().transform(source[0].second.first);
+        glm::vec3 size = bbox.upper_bound - bbox.lower_bound;
+        float total_area = glm::dot(size, glm::vec3(size.y, size.z, size.x));
+        for (int i = 1; i < source.size(); ++i) {
+            auto &obj = source[i];
+            AABB temp = obj.first->getAABB().transform(obj.second.first);;
+            bbox = bbox + temp;
+            glm::vec3 size = bbox.upper_bound - bbox.lower_bound;
+            total_area += glm::dot(size, glm::vec3(size.y, size.z, size.x));
+        }
+
+        float sah = std::numeric_limits<float>::max();
+        float best_axis;
+        float best_plane; 
+        int left_number = 0;
+
+        for (int i = 0; i < 3; ++i) {
+            std::sort(source.begin(), source.end(), [i](object_reference &a, object_reference &b){
+                AABB a_bound = a.first->getAABB().transform(a.second.first);
+                AABB b_bound = b.first->getAABB().transform(b.second.first);
+
+                double a_axis_mean = (a_bound.lower_bound[i] + a_bound.upper_bound[i]) * 0.5;
+                double b_axis_mean = (b_bound.lower_bound[i] + b_bound.upper_bound[i]) * 0.5;
+                
+                return a_axis_mean > b_axis_mean;
+            });
+
+            float current_sah = 0.0f;
+            float current_area = 0.0f;
+            float plane = 0.0f;
+            for (int j = 0 ; j < source.size(); ++j) {
+                AABB bbox = source[j].first->getAABB();
+                plane = ((bbox.upper_bound + bbox.lower_bound)*0.5)[i];
+                current_sah = current_area * j + (total_area - current_area) * (source.size() - j);
+
+                if (current_sah < sah) {
+                    best_axis = i;
+                    best_plane = plane;
+                    sah = current_sah;
+                    left_number = j;
+                }
+                glm::vec3 size = bbox.upper_bound - bbox.lower_bound;
+                current_area += glm::dot(size, glm::vec3(size.y, size.z, size.x));
+            }
+        }
+
+        int reserve = 0;
+        for (int i = 0; i < source.size(); ++i) {
+            AABB box = source[i].first->getAABB().transform(source[i].second.first);
+            glm::vec3 center = (box.lower_bound + box.upper_bound)*0.5;
+            if (center[best_axis] <= best_plane) {
+                std::swap(source[i], source[reserve]);
+                ++reserve;
+                if (reserve >= left_number) {
+                    break;
+                }
+                
+            }
+        }
+
+        auto split_index = source.begin() + reserve;
+        right = std::vector<object_reference>(std::make_move_iterator(split_index), 
+            std::make_move_iterator(source.end()));
+
+        left = std::vector<object_reference>(std::make_move_iterator(source.begin()), 
+            std::make_move_iterator(split_index));
+
+        source.clear();
+        return;
+    };
+};
+
+
 std::unique_ptr<Splitter> BVH::splitter = std::make_unique<MediumSplitter>();
 
 BVH::BVHNode * BVH::__recursiveBuild(std::vector<object_reference> &&objs, int depth) const {
@@ -118,10 +205,15 @@ BVH::BVHNode * BVH::__recursiveBuild(std::vector<object_reference> &&objs, int d
     if (objs.size() <= LeafNodePrimitiveLimit) {
         BVHNode *leafNode = new BVHNode();
         leafNode->bbox = objs[0].first->getAABB().transform(objs[0].second.first);
+
         leafNode->objs.emplace_back(std::move(objs[0]));
         for (int i = 1; i < objs.size(); ++i) {
             leafNode->bbox = leafNode->bbox + objs[i].first->getAABB().transform(objs[i].second.first);
             leafNode->objs.emplace_back(std::move(objs[i]));
+        }
+
+        if (priority == 0) {  
+            AABB temp = objs[0].first->getAABB();
         }
         leafNode->left = nullptr;
         leafNode->right = nullptr;
@@ -144,7 +236,6 @@ BVH::BVHNode * BVH::__recursiveBuild(std::vector<object_reference> &&objs, int d
 }
 
 BVH::BVH(std::vector<object_reference> &&objs) {
-    priority = 1;
     BVHNode *root_raw = __recursiveBuild(std::move(objs), 0);
     this->root = std::unique_ptr<BVHNode>(root_raw);
 }
@@ -170,6 +261,7 @@ std::vector<object_reference> BVH::__constructObjectList(SceneNode *root) {
 
         if (node->m_nodeType == NodeType::GeometryNode || 
             node->m_nodeType == NodeType::CSGNode) {
+            std::cout << node->m_name << std::endl;
             objs.emplace_back(std::make_pair(node, 
                 std::make_pair(current_trans_matrix, current_inv_trans_matrix)));
         }

@@ -48,7 +48,9 @@ Intersection GeometryNode::intersect(const Ray &ray) const {
 }
 
 AABB GeometryNode::getAABB() const {
-	return m_primitive->getAABB();
+	std::string name = m_name;
+	AABB bbox = m_primitive->getAABB();
+	return bbox;
 }
 
 int GeometryNode::construct(const glm::mat4 &t_matrix) const {
@@ -59,7 +61,7 @@ int GeometryNode::construct(const glm::mat4 &t_matrix) const {
 		UboConstructor::light_arr.emplace_back(UboLight());
 		UboConstructor::light_arr.back().oid_and_area = glm::vec4(float(pid),getArea(t_matrix),0,0);
 	}
-	UboConstructor::obj_arr[pid].obj_aabb_3.x = getArea(t_matrix);
+	UboConstructor::obj_arr[pid].obj_data_3.x = getArea(t_matrix);
 	return pid;
 }
 
