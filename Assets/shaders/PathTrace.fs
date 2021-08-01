@@ -6,6 +6,7 @@
 #define M_PI 3.14159265358979323846
 
 #define RUSSIAN_ROULETTE 0.8
+#define SPP 1
 
 #define B_SIZE 0x100
 #define BM 0xff
@@ -429,7 +430,7 @@ bool isIntersect(in Ray ray,in AABB bbox) {
     float lowert;
     float uppert;
     bboxInterval(ray, bbox, lowert, uppert);
-    return uppert > 0 && uppert >= lowert;
+    return uppert >= 0 && uppert >= lowert;
 }
 
 Intersection traverseTriangle(in Ray ray, in vec3 v0, in vec3 v1, in vec3 v2) {
@@ -447,7 +448,7 @@ Intersection traverseTriangle(in Ray ray, in vec3 v0, in vec3 v1, in vec3 v2) {
     float t = d*dot( -n, rov0 );
     if( u<0.0 || u>1.0 || v<0.0 || (u+v)>1.0 ) t = -1.0;
     
-    if (t <= 0) return result;
+    if (t < EPSILON) return result;
     result.intersects = true;
     result.t = t;
     result.position = result.t * ray.rd + ray.ro;
@@ -493,7 +494,10 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
 
         AABB bbox = localNode.bbox;
 
-        if (!isIntersect(ray, bbox)) {
+        float lower_t = 0;
+        float upper_t = 0;
+        bboxInterval(ray, localNode.bbox, lower_t, upper_t);
+        if (upper_t < 0 || lower_t > upper_t || lower_t > result.t) {
             continue;
         }
 
@@ -1190,7 +1194,11 @@ Intersection bvhTraverse(in Ray ray) {
             localNode = getLocalBVHNodeFromTexture(id-1024);
         }
 
-        if (!isIntersect(ray, localNode.bbox)) {
+
+        float lower_t = 0;
+        float upper_t = 0;
+        bboxInterval(ray, localNode.bbox, lower_t, upper_t);
+        if (upper_t < 0 || lower_t > upper_t || lower_t > result.t) {
             continue;
         }
 
@@ -1337,7 +1345,7 @@ vec3 evalMaterial(in MaterialInfo m, in vec3 wi, in vec3 wo, in vec3 N) {
         case 1:
         case 2:
         case 3: {
-            float cosalpha = dot(N, wo);
+            float cosalpha = abs(dot(N, wo));
             return (cosalpha > 0.0f)? m.kd/M_PI:vec3(0.0);
             break;
         }
@@ -1420,7 +1428,7 @@ vec3 castRay(in Ray primaryRay) {
     vec3 factor = vec3(1.0f);
     int depth = 0;
 
-    for (int i = 0; i < 30; ++i) {
+    for (int i = 0; i < 5; ++i) {
 
         // if (depth > 0) {
         //     continue;
@@ -1505,7 +1513,11 @@ void main() {
              -1.0f));
     Ray primaryRay = Ray(eyePos, dir);
 
-    vec3 color = castRay(primaryRay);
+    vec3 color = vec3(0);
+    for (int i = 0; i < SPP; ++i) {
+        color += castRay(primaryRay);
+    }
+    color = color * (1.0f/SPP);
     fragColor = vec4(color, 1.0f);
 
     if (length(color) < EPSILON) {
