@@ -18,7 +18,7 @@
 #define BVH_MESH_STACK_SIZE 50
 #define CSG_STACK_SIZE 20
 #define CAST_RAY_STACK_SIZE 50
-#define STACK_SIZE 100
+#define STACK_SIZE 200
 
 #define OBJ_TEXTURE_SIZE {OBJ_TEXTURE_SIZE}
 #define VERT_TEXTURE_SIZE {VERT_TEXTURE_SIZE}
@@ -447,7 +447,7 @@ Intersection traverseTriangle(in Ray ray, in vec3 v0, in vec3 v1, in vec3 v2) {
     float t = d*dot( -n, rov0 );
     if( u<0.0 || u>1.0 || v<0.0 || (u+v)>1.0 ) t = -1.0;
     
-    if (t < 0) return result;
+    if (t <= 0) return result;
     result.intersects = true;
     result.t = t;
     result.position = result.t * ray.rd + ray.ro;
@@ -475,7 +475,7 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
 
     int previous = _top;
     stackPush(mesh_bvh_id);
-    while(!is_stack_empty()) {
+    while(previous < _top) {
         int id;
         stackPop(id);
 
@@ -491,7 +491,9 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
             localNode = getLocalBVHMeshNodeFromTexture(id-1024);
         }
 
-        if (!isIntersect(ray, localNode.bbox)) {
+        AABB bbox = localNode.bbox;
+
+        if (!isIntersect(ray, bbox)) {
             continue;
         }
 
@@ -504,11 +506,12 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
             Intersection temp = traverseTriangle(ray, v1, v2, v3);
             if (temp.intersects && temp.t < result.t) {
                 result = temp;
-            }        
-
+            }
+            
         }
         stackPush(localNode.left_id);
         stackPush(localNode.right_id);
+        
     }
     return result;
 }
@@ -1191,7 +1194,7 @@ Intersection bvhTraverse(in Ray ray) {
             continue;
         }
 
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 1; ++i) {
             int oid = localNode.obj_ids[i];
             if (oid >= 0) {
                 
@@ -1207,7 +1210,7 @@ Intersection bvhTraverse(in Ray ray) {
                     result = temp;
                     result.position = ptrans(obj.t_matrix, result.position);
                     result.normal = vtrans(transpose(obj.inv_t_matrix), temp.normal);
-                }    
+                } 
             }
         }
 
@@ -1398,7 +1401,7 @@ float pdfMaterial(in MaterialInfo m, in vec3 wi, in vec3 wo, in vec3 N) {
         case 1:
         case 2:
         case 3: {
-            return (dot(wo, N) > 0.0f)? 0.5f/M_PI:0.0f;
+            return (dot(wo, N) > 0.0f)? 0.5f/M_PI:EPSILON;
             break;
         }
         case 4: {
@@ -1417,7 +1420,7 @@ vec3 castRay(in Ray primaryRay) {
     vec3 factor = vec3(1.0f);
     int depth = 0;
 
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 30; ++i) {
 
         // if (depth > 0) {
         //     continue;
@@ -1426,7 +1429,7 @@ vec3 castRay(in Ray primaryRay) {
         Intersection current = bvhTraverse(ray);
         if (current.intersects) {
             if (current.m.isEmission) {
-                result = min(result + factor*current.m.kd, 1.0f);
+                result = min(result + factor*min(current.m.kd, 1.0f), 1.0f);
                 break;
             }
 
@@ -1437,6 +1440,9 @@ vec3 castRay(in Ray primaryRay) {
             vec3 sampleNormal;
             vec3 sampleEmit;
             sampleLight(sampleCoord, sampleNormal, sampleEmit, pdf);
+            // sampleCoord = vec3(250,548.7,250);
+            // sampleEmit = vec3(23.9174, 19.2832,15.5404);
+            // sampleNormal = vec3(0, -1, 0);
             
             vec3 dl_vec = sampleCoord - current.position;
             
@@ -1455,8 +1461,10 @@ vec3 castRay(in Ray primaryRay) {
                 l_dir = ((sampleEmit * evalMaterial(current.m,ws, wo, N) * dot(NN, 
                     -ws) * dot(N, ws))/ (dl_distance*dl_distance*pdf));
             }
+
+            // l_dir = ((sampleEmit * vec3(1.0, 1.0, 1.0) * 1.0f)/ (1*1*pdf));
     
-            result = min(result + factor*l_dir, 1.0f);
+            result = min(result + factor*min(l_dir, 1.0f), 1.0f);
 
             float random = get_random_float();
 
@@ -1465,13 +1473,22 @@ vec3 castRay(in Ray primaryRay) {
             }
 
             vec3 wi = normalize(sampleMaterial(current.m, wo, N));
-            Ray nextRay = Ray(p,wi);
+            
+            vec3 delta;
+            if (dot(current.normal, wi) > 0) {
+                delta = current.normal * EPSILON;
+            } else {
+                delta = -current.normal * EPSILON;
+            }
+            Ray nextRay = Ray(p+delta,wi);
 
             ray = nextRay;
             depth = depth + 1;
-            factor = factor * evalMaterial(current.m,wi, wo, N) * 
-                dot(N, wi)/(RUSSIAN_ROULETTE * 
+            factor = (factor * evalMaterial(current.m,wi, wo, N) * 
+                dot(N, wi))/(RUSSIAN_ROULETTE * 
                 pdfMaterial(current.m,wi, wo, N));
+        } else {
+            break;
         }
     }
     return result;

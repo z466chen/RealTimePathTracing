@@ -205,7 +205,6 @@ BVH::BVHNode * BVH::__recursiveBuild(std::vector<object_reference> &&objs, int d
     if (objs.size() <= LeafNodePrimitiveLimit) {
         BVHNode *leafNode = new BVHNode();
         leafNode->bbox = objs[0].first->getAABB().transform(objs[0].second.first);
-
         leafNode->objs.emplace_back(std::move(objs[0]));
         for (int i = 1; i < objs.size(); ++i) {
             leafNode->bbox = leafNode->bbox + objs[i].first->getAABB().transform(objs[i].second.first);

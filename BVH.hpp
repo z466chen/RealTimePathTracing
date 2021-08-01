@@ -31,7 +31,7 @@ class BVH {
     static std::unique_ptr<Splitter> splitter;
     std::unique_ptr<BVHNode> root;
 
-    int LeafNodePrimitiveLimit = 4;
+    int LeafNodePrimitiveLimit = 1;
 
     BVHNode *__recursiveBuild(std::vector<object_reference> &&objs, int depth) const;
 

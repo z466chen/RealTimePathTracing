@@ -33,7 +33,7 @@ void UboConstructor::calcDefines() {
 }
 
 static void __constructTexture(GLuint &id, void *arr, int mem_size, int texture_size) {
-    float temp[texture_size*texture_size] = {0};
+    float temp[texture_size*texture_size] = {-1};
     memcpy(temp,arr,mem_size);
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
@@ -44,7 +44,7 @@ static void __constructTexture(GLuint &id, void *arr, int mem_size, int texture_
 }
 
 static void __constructTexture3Packed(GLuint &id, void *arr, int mem_size, int texture_size) {
-    float temp[texture_size*texture_size*3] = {0};
+    float temp[texture_size*texture_size*3] = {-1};
     memcpy(temp,arr,mem_size);
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
