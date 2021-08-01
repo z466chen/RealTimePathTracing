@@ -212,6 +212,8 @@ void A5::init_uniforms() {
 
 void A5::init() {
 	glClearColor( ambient.x, ambient.y, ambient.z, 1.0 );
+
+	glfwSwapInterval(0);
 	// glfwWindowHint(GLFW_SAMPLES, 32);
 	// glEnable(GL_MULTISAMPLE);
     init_shaders();
@@ -293,7 +295,7 @@ void A5::draw() {
 		glUniform1i(unol, size);
 		glUniform2f(uwsize,m_framebufferWidth, m_framebufferHeight);
 		// generate random seeds
-		glm::vec4 time = glm::vec4(glfwGetTime(), 0,0,0);
+		glm::vec4 time = glm::vec4(get_random_float(), get_random_float(),get_random_float(),get_random_float());
 		glUniform4fv(useed, 1, glm::value_ptr(time));
 		glUniform1fv(utotalArea, 1, &total_area);
 

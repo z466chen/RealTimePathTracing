@@ -170,6 +170,10 @@ out vec4 fragColor;
 float _stack[STACK_SIZE];
 int _top = -1;
 
+bool is_stack_empty() {
+    return _top == -1;
+}
+
 void stackClear() {
     _top = -1;
 }
@@ -232,13 +236,13 @@ float rand_core(in vec2 co){
 
 float get_random_float() {
     float a = rand_core(vec2(texCoord.x, seed.x));
-    // float b = rand_core(vec2(seed.y, texCoord.y));
-    // float c = rand_core(vec2(rand_seed_y,seed.z));
-    // rand_seed_y += 1;
-    // float d = rand_core(vec2(seed.w, a));
-    // float e = rand_core(vec2(b, c));
-    // float f = rand_core(vec2(d, e));
-    return a;
+    float b = rand_core(vec2(seed.y, texCoord.y));
+    float c = rand_core(vec2(rand_seed_y,seed.z));
+    rand_seed_y += 1;
+    float d = rand_core(vec2(seed.w, a));
+    float e = rand_core(vec2(b, c));
+    float f = rand_core(vec2(d, e));
+    return f;
 }
 
 
@@ -365,6 +369,18 @@ LocalBVHNode getLocalBVHNodeFromUniform(int id) {
     return localNode;
 }
 
+void getTriangle(int eid, int vert_offset, out vec3 v1, out vec3 v2, out vec3 v3) {
+                
+    vec3 temp = getVec3FromTexture3Packed(elem_tex, eid,ELEM_TEXTURE_SIZE);
+    int i1 = int(temp.x) + vert_offset;
+    int i2 = int(temp.y) + vert_offset;
+    int i3 = int(temp.z) + vert_offset;
+    
+    v1 = getVec3FromTexture3Packed(vert_tex, i1,VERT_TEXTURE_SIZE);
+    v2 = getVec3FromTexture3Packed(vert_tex, i2,VERT_TEXTURE_SIZE);
+    v3 = getVec3FromTexture3Packed(vert_tex, i3,VERT_TEXTURE_SIZE);
+}
+
 Object getObject(int id) {
     Object obj;
     obj.t_matrix = getMat4FromTexture(obj_tex, 46*id, OBJ_TEXTURE_SIZE);
@@ -459,7 +475,7 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
 
     int previous = _top;
     stackPush(mesh_bvh_id);
-    while(_top > previous) {
+    while(!is_stack_empty()) {
         int id;
         stackPop(id);
 
@@ -482,17 +498,10 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
         int oid = localNode.obj_ids[0];
         if (oid >= 0) {
             
-            vec3 atemp = getVec3FromTexture3Packed(elem_tex, oid,ELEM_TEXTURE_SIZE);
-            int i1 = int(atemp.x) + vert_offset;
-            int i2 = int(atemp.y) + vert_offset;
-            int i3 = int(atemp.z) + vert_offset;
-            
-            vec3 v1 = getVec3FromTexture3Packed(vert_tex, i1, VERT_TEXTURE_SIZE);
-            vec3 v2 = getVec3FromTexture3Packed(vert_tex, i2, VERT_TEXTURE_SIZE);
-            vec3 v3 = getVec3FromTexture3Packed(vert_tex, i3, VERT_TEXTURE_SIZE);
+            vec3 v1, v2, v3;
+            getTriangle(oid, vert_offset, v1, v2, v3);
 
             Intersection temp = traverseTriangle(ray, v1, v2, v3);
-
             if (temp.intersects && temp.t < result.t) {
                 result = temp;
             }        
@@ -505,84 +514,109 @@ Intersection bvhMeshTraverse(in Ray ray, int mesh_bvh_id, int vert_offset) {
 }
 
 void sampleBVHMesh(int mesh_bvh_id, int vert_offset, 
-    out vec3 sampleCoord, out vec3 sampleNormal, in mat4 t_matrix, float area, float sample) {
+     in mat4 t_matrix, float area, float sample, out vec3 sampleCoord, out vec3 sampleNormal) {
 
-    int start = _top;
-    stackPush(mesh_bvh_id);
-    stackPush(get_random_float()*area);
-    stackPush(area);
-    stackPush(1);
-
-    while(_top > start) {
-        int id;
-        float prev_sample;
-        float prev_area;
-        int is_left;
-
-        stackPop(is_left);
-        stackPop(prev_area);
-        stackPop(prev_sample);
-        stackPop(id);
-
-        if (id < 0) {
-            continue;
-        } 
+    LocalBVHMeshNode localNode;
         
-        LocalBVHMeshNode localNode;
-        
-        if (id < 1024) {
-            localNode = getLocalBVHMeshNodeFromUniform(id);
-        } else {
-            localNode = getLocalBVHMeshNodeFromTexture(id-1024);
-        }
+    if (mesh_bvh_id < 1024) {
+        localNode = getLocalBVHMeshNodeFromUniform(mesh_bvh_id);
+    } else {
+        localNode = getLocalBVHMeshNodeFromTexture(mesh_bvh_id-1024);
+    }
 
-        if (((is_left == 1) && localNode.area < prev_sample) ||
-            ((is_left != 1) && ((prev_area - localNode.area) > prev_sample))) {
-            continue;
-        }
-
-        float sample = prev_sample;
-        if (is_left != 1) {
-            sample = prev_sample - (prev_area - localNode.area);
-        }
-        
-        float currentArea = 0.0f;
-
+    if (localNode.left_id < 0) {
         int oid = localNode.obj_ids[0];
         if (oid >= 0) {
-            
-            vec3 temp = getVec3FromTexture3Packed(elem_tex, oid,ELEM_TEXTURE_SIZE);
-            int i1 = int(temp.x) + vert_offset;
-            int i2 = int(temp.y) + vert_offset;
-            int i3 = int(temp.z) + vert_offset;
-            
-            vec3 v1 = getVec3FromTexture3Packed(vert_tex, i1,VERT_TEXTURE_SIZE);
-            vec3 v2 = getVec3FromTexture3Packed(vert_tex, i2,VERT_TEXTURE_SIZE);
-            vec3 v3 = getVec3FromTexture3Packed(vert_tex, i3,VERT_TEXTURE_SIZE);
-            
+
+            vec3 v1, v2, v3;
+            getTriangle(oid, vert_offset, v1, v2, v3);
+
             v1 = ptrans(t_matrix,v1);
             v2 = ptrans(t_matrix,v2);
             v3 = ptrans(t_matrix,v3);
-
+            
             vec3 n = cross(v2 - v1, v3 - v1);
             float tarea = length(n) * 0.5f;   
             // found!
             float x = sqrt(get_random_float());
             float y = get_random_float();
             sampleCoord = v1 * (1.0f - x) + v2 * (x * (1.0f - y)) + v3 * (x * y);
-            sampleNormal = normalize(n);
+            sampleNormal = n;
             return;
         }
+    }
 
-        stackPush(localNode.left_id);
-        stackPush(sample);
-        stackPush(localNode.area);
-        stackPush(1);
 
-        stackPush(localNode.right_id);
-        stackPush(sample);
-        stackPush(localNode.area);
-        stackPush(0);
+    float prev_sample = sqrt(get_random_float())*area;
+    int left_id = localNode.left_id;
+    int right_id = localNode.right_id;
+
+    for (int i = 0; i < 20; ++i) {
+        
+        LocalBVHMeshNode leftNode;
+        if (left_id < 1024) {
+            leftNode = getLocalBVHMeshNodeFromUniform(left_id);
+        } else {
+            leftNode = getLocalBVHMeshNodeFromTexture(left_id-1024);
+        }
+
+        LocalBVHMeshNode rightNode;
+        if (right_id < 1024) {
+            rightNode = getLocalBVHMeshNodeFromUniform(right_id);
+        } else {
+            rightNode = getLocalBVHMeshNodeFromTexture(right_id-1024);
+        }
+
+        if (leftNode.area >= prev_sample && leftNode.left_id >= 0) {
+            prev_sample = prev_sample;
+            left_id = leftNode.left_id;
+            right_id = leftNode.right_id;
+        } else if (leftNode.area >= prev_sample && leftNode.left_id < 0) {
+            int oid = leftNode.obj_ids[0];
+            if (oid >= 0) {
+            
+                vec3 v1, v2, v3;
+                getTriangle(oid, vert_offset, v1, v2, v3);
+
+                v1 = ptrans(t_matrix,v1);
+                v2 = ptrans(t_matrix,v2);
+                v3 = ptrans(t_matrix,v3);
+
+                vec3 n = cross(v2 - v1, v3 - v1);
+                float tarea = length(n) * 0.5f;   
+                // found!
+                float x = sqrt(get_random_float());
+                float y = get_random_float();
+                sampleCoord = v1 * (1.0f - x) + v2 * (x * (1.0f - y)) + v3 * (x * y);
+                sampleNormal = n;
+
+                return;
+            }
+        } else if (leftNode.area < prev_sample && rightNode.left_id < 0) {
+            int oid = rightNode.obj_ids[0];
+            if (oid >= 0) {
+            
+                vec3 v1, v2, v3;
+                getTriangle(oid, vert_offset, v1, v2, v3);
+
+                v1 = ptrans(t_matrix,v1);
+                v2 = ptrans(t_matrix,v2);
+                v3 = ptrans(t_matrix,v3);
+
+                vec3 n = cross(v2 - v1, v3 - v1);
+                float tarea = length(n) * 0.5f;   
+                // found!
+                float x = sqrt(get_random_float());
+                float y = get_random_float();
+                sampleCoord = v1 * (1.0f - x) + v2 * (x * (1.0f - y)) + v3 * (x * y);
+                sampleNormal = n;
+                return;
+            }
+        } else {
+            prev_sample = prev_sample - leftNode.area;
+            left_id = rightNode.left_id;
+            right_id = rightNode.right_id;
+        }
     }
 }
 
@@ -1055,7 +1089,6 @@ Intersection objTraverse(int oid, in Object obj, in Ray ray) {
             int vertex_offset = int(obj.obj_data_1.y);
             result = bvhMeshTraverse(ray, bvh_mesh_id, vertex_offset);
             result.m = getMaterialInfo(obj, result.position);
-            
             break;
         }
         case 6: {
@@ -1136,10 +1169,9 @@ Intersection bvhTraverse(in Ray ray) {
     result.intersects = false;
     result.t = FLT_MAX;
 
-    int start = _top;
     stackPush(0);
 
-    while(_top > start) {
+    while(!is_stack_empty()) {
         int id;
         stackPop(id);
 
@@ -1198,7 +1230,7 @@ void sampleLight(out vec3 sampleCoord, out vec3 sampleNormal,
 
             sampleEmit = vec3(mat_node[obj.mat_id].mat_data_1.xy, 
                 mat_node[obj.mat_id].mat_data_2.x);
-            // Sample point and pdf from object
+            // // Sample point and pdf from object
             float area = light_node[i].oid_and_area.y;
             switch(obj.obj_type) {
                 case 0: {
@@ -1284,8 +1316,8 @@ void sampleLight(out vec3 sampleCoord, out vec3 sampleNormal,
                 case 5: {
                     int bvh_id = int(obj.obj_data_1.x);
                     int voffset = int(obj.obj_data_1.y);
-                    sampleBVHMesh(bvh_id, voffset, sampleCoord, 
-                        sampleNormal, obj.t_matrix, area, p - (emit_area_sum - area));
+                    sampleBVHMesh(bvh_id, voffset, obj.t_matrix, area, 
+                        p - (emit_area_sum - area), sampleCoord, sampleNormal);
                     break;
                 }        
             }
@@ -1297,7 +1329,6 @@ void sampleLight(out vec3 sampleCoord, out vec3 sampleNormal,
 }
 
 vec3 evalMaterial(in MaterialInfo m, in vec3 wi, in vec3 wo, in vec3 N) {
-    return vec3(0,0,0);
     switch(m.m_type) {
         case 0:
         case 1:
@@ -1382,31 +1413,21 @@ float pdfMaterial(in MaterialInfo m, in vec3 wi, in vec3 wo, in vec3 N) {
 vec3 castRay(in Ray primaryRay) {
     vec3 result = vec3(0.0f);
 
-    int start = _top;
-    stackPush(primaryRay);
-    stackPush(0);
-    stackPush(vec3(1.0f));
+    Ray ray = primaryRay;
+    vec3 factor = vec3(1.0f);
+    int depth = 0;
 
-    while(_top > start) {
-        vec3 factor;
-        int depth;
-        Ray ray;
+    for (int i = 0; i < 1; ++i) {
 
-        stackPop(factor);
-        stackPop(depth);
-        stackPop(ray);
+        // if (depth > 0) {
+        //     continue;
+        // }
 
-        if (depth > 2) {
-            continue;
-        }
-
-        // Intersection current = bvhTraverse(ray);
-        Intersection current;
-        current.intersects = true;
+        Intersection current = bvhTraverse(ray);
         if (current.intersects) {
             if (current.m.isEmission) {
                 result = min(result + factor*current.m.kd, 1.0f);
-                continue;
+                break;
             }
 
             vec3 wo = normalize(-ray.rd);
@@ -1427,36 +1448,33 @@ vec3 castRay(in Ray primaryRay) {
             vec3 p = current.position;
 
             Ray sampledRay = Ray(current.position, ws);
-            // Intersection dl_intersection = bvhTraverse(sampledRay);
-            Intersection dl_intersection;
-            dl_intersection.intersects = true;
+            Intersection dl_intersection = bvhTraverse(sampledRay);
 
             vec3 l_dir = vec3(0);    
             if (dl_intersection.t > (dl_distance - EPSILON)) {
                 l_dir = ((sampleEmit * evalMaterial(current.m,ws, wo, N) * dot(NN, 
                     -ws) * dot(N, ws))/ (dl_distance*dl_distance*pdf));
             }
-
-            result += factor*l_dir;
+    
+            result = min(result + factor*l_dir, 1.0f);
 
             float random = get_random_float();
 
             if (random > RUSSIAN_ROULETTE) {
-                continue;
+                break;
             }
 
             vec3 wi = normalize(sampleMaterial(current.m, wo, N));
             Ray nextRay = Ray(p,wi);
 
-            stackPush(nextRay);
-            stackPush(depth+1);
-            stackPush(factor * evalMaterial(current.m,wi, wo, N) * 
+            ray = nextRay;
+            depth = depth + 1;
+            factor = factor * evalMaterial(current.m,wi, wo, N) * 
                 dot(N, wi)/(RUSSIAN_ROULETTE * 
-                pdfMaterial(current.m,wi, wo, N)));
+                pdfMaterial(current.m,wi, wo, N));
         }
     }
-    
-    return min(result, 1.0f);
+    return result;
 }
 
 void main() {
@@ -1471,8 +1489,8 @@ void main() {
     Ray primaryRay = Ray(eyePos, dir);
 
     vec3 color = castRay(primaryRay);
-
     fragColor = vec4(color, 1.0f);
+
     if (length(color) < EPSILON) {
         fragColor = texture(bg_tex, texCoord);
     }

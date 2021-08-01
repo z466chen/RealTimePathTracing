@@ -403,8 +403,8 @@ int BVH::__constructUbo(const BVH::BVHNode *node, const glm::mat4 &t_matrix) con
         UboConstructor::bvh_mesh_arr[id].bvh_right = right_id;
 
         if (left_id >= 0 && right_id >= 0) {
-            UboConstructor::bvh_mesh_arr[id].obj_id_4 = UboConstructor::bvh_arr[left_id].obj_id_4 + 
-                UboConstructor::bvh_arr[right_id].obj_id_4;
+            UboConstructor::bvh_mesh_arr[id].obj_id_4 = UboConstructor::bvh_mesh_arr[left_id].obj_id_4 + 
+                UboConstructor::bvh_mesh_arr[right_id].obj_id_4;
         } else {
             float *temp[4] = {
             &UboConstructor::bvh_mesh_arr[id].obj_id_1, 
