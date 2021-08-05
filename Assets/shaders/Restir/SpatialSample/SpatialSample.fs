@@ -4,8 +4,9 @@
 #define FLT_MIN -3.402823466e+38
 #define EPSILON 0.01
 #define M_PI 3.14159265358979323846
-#define MAX_INTERATIONS 100
-#define KERNEL_SIZE 5
+#define MAX_INTERATIONS 30
+#define KERNEL_SIZE 3
+#define STRIDE 1
 #define MAX_SPATIAL_DEPTH 100
 
 #define RUSSIAN_ROULETTE 0.8
@@ -1412,7 +1413,7 @@ bool test_geometry_similarity(vec3 n1, vec3 d1, vec3 n2, vec3 d2) {
 void merge(inout Reservior a, in Reservior b, float p) {
     int M0 = a.M;
     update(a, b.z, p*b.W*b.M);
-    a.M = a.M + b.M;
+    a.M = M0 + b.M;
 }
 
 vec3 get_p_hat(int oid, in Ray primaryRay, in vec3 xv, in vec3 nv, in vec3 xs, in vec3 ns) {
@@ -1462,8 +1463,8 @@ void main() {
         // randomly choose a neighbour
         int a = int(get_random_float()*(KERNEL_SIZE*KERNEL_SIZE));
         // a = (a > middle)? a+1:a;
-        int dx = a%KERNEL_SIZE - int((KERNEL_SIZE-1)*0.5);
-        int dy = a/KERNEL_SIZE - int((KERNEL_SIZE-1)*0.5);
+        int dx = STRIDE*(a%KERNEL_SIZE - int((KERNEL_SIZE-1)*0.5));
+        int dy = STRIDE*(a/KERNEL_SIZE - int((KERNEL_SIZE-1)*0.5));
 
         Reservior trb_qn;
         read_trb(trb_qn, dx, dy);
@@ -1495,10 +1496,10 @@ void main() {
             delta = -trb.z.nv * EPSILON;
         }
         Ray vRay = Ray(trb.z.xv+delta, -normalize(rsqn));
-        // Intersection visibility = bvhTraverse(vRay);
-        // if (visibility.t < (length(rsqn) - EPSILON)) {
-        //     w = 0.0f;
-        // }
+        Intersection visibility = bvhTraverse(vRay);
+        if (visibility.t < (length(rsqn) - EPSILON)) {
+            w = 0.0f;
+        }
         merge(srb, trb_qn, w);
         // valid_samples[nos] = a;
         ++nos;

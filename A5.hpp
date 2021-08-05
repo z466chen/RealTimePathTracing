@@ -77,10 +77,11 @@ private:
     struct FrameBufferObject {
         GLuint fbo;
         GLuint data_objs[7];
-        // GLuint depth;
+        int number;
     };
 
-    FrameBufferObject fbos[5];
+    FrameBufferObject fbos[7];
+    
 
 
     class ISBShaderObject {
@@ -215,6 +216,8 @@ private:
         ShaderProgram shader;
 
         GLuint uemission_tex;
+        GLuint ucolor_buffer;
+        GLuint unumber_buffer;
         
         GLuint usrb_tex1;
         GLuint usrb_tex2;

@@ -2,7 +2,7 @@
 
 #define M_PI 3.14159265358979323846
 #define EPSILON 0.01
-#define MAXIMUM_RESERVIOR_DEPTH 30
+#define MAXIMUM_RESERVIOR_DEPTH 1000
 
 uniform sampler2D isb_tex1;
 uniform sampler2D isb_tex2;

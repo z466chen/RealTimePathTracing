@@ -1579,6 +1579,8 @@ void get_indirect_sample(in Ray ray, in Intersection current, out Sample result)
             -ws), 0.0f) * max(dot(N, ws), 0.0f))/ (dl_distance*dl_distance*pdf));
     }
 
+    result.color = l_dir;
+
     vec3 wi = normalize(sampleMaterial(current.m, wo, N));
     
     vec3 delta;
@@ -1597,23 +1599,26 @@ void get_indirect_sample(in Ray ray, in Intersection current, out Sample result)
     result.lo = (result.lo * evalMaterial(current.m,wi, wo, N) * 
                 max(dot(N, wi), 0.0f))/pdfMaterial(current.m,wi, wo, N);
    
-    float total_w = length(result.lo) + length(l_dir);
-    if (total_w < 0.001) {
-        result.oid = -1;
-        return;
-    }
+    // float total_w = length(result.lo) + length(l_dir);
+    // if (total_w < 0.001) {
+    //     result.oid = -1;
+    //     return;
+    // }
 
-    float random = get_random_float();
-    if (random < length(l_dir)/total_w) {
-        result.lo = l_dir;  
-        result.oid = dl_intersection.id;
-        result.xs =  dl_intersection.position;
-        result.ns = dl_intersection.normal;
-    } else {
-        result.oid = sample_point.id;
-        result.xs = sample_point.position;
-        result.ns = sample_point.normal;
-    }
+    // float random = get_random_float();
+    // if (random <1) {
+    //     result.lo = l_dir;  
+    //     result.oid = dl_intersection.id;
+    //     result.xs =  dl_intersection.position;
+    //     result.ns = dl_intersection.normal;
+    // } else {
+    //     result.oid = sample_point.id;
+    //     result.xs = sample_point.position;
+    //     result.ns = sample_point.normal;
+    // }
+    result.oid = sample_point.id;
+    result.xs = sample_point.position;
+    result.ns = sample_point.normal;
     return;
 }
 

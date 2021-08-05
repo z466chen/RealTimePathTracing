@@ -169,6 +169,8 @@ void A5::init_textures() {
 	init_fbo(fbos[2], 7);
 	init_fbo(fbos[3], 7);
 	init_fbo(fbos[4], 7);
+	init_fbo(fbos[5], 2);
+	init_fbo(fbos[6], 2);
 }
 
 void A5::init_uniforms() {
@@ -209,6 +211,7 @@ void A5::init_fbo(FrameBufferObject &obj, int number) {
 	glBindFramebuffer(GL_FRAMEBUFFER, obj.fbo);
 	
 
+	obj.number = number;
 	std::vector<GLuint> attachment_points;
 	for(int i = 0; i < number; ++i) {
 		glGenTextures(1, &obj.data_objs[i]);
@@ -320,7 +323,7 @@ void A5::draw() {
 	if (camera.isCameraChanged()) {
 		state.frame_initialized = false;
 		// clean all buffer data if camera changed
-		for (int i = 0; i < 5; ++i) {
+		for (int i = 0; i < 7; ++i) {
 			attach_fbo(fbos[i]);
 		}
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -331,10 +334,10 @@ void A5::draw() {
 
 	std::vector<int> frame_buffer_sequence;
 	if (state.frame_buffer_mode == 0) {
-		frame_buffer_sequence = {4,2,0,3,1,2};
+		frame_buffer_sequence = {4,2,0,3,1,5,6};
 		state.frame_buffer_mode = 1;
 	} else {
-		frame_buffer_sequence = {4,0,2,1,3,0};
+		frame_buffer_sequence = {4,0,2,1,3,6,5};
 		state.frame_buffer_mode = 0;
 	}
 
@@ -393,19 +396,25 @@ void A5::draw() {
 	}
 
 	{
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f); 
-        glClear(GL_COLOR_BUFFER_BIT);
+		attach_fbo(fbos[frame_buffer_sequence[6]]);
 		ig_shader_object.shader.enable();
 			ig_shader_object.bindObjects();
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D,fbos[frame_buffer_sequence[0]].data_objs[6]);
 			use_fbo(fbos[frame_buffer_sequence[4]], GL_TEXTURE1, 7);
+			use_fbo(fbos[frame_buffer_sequence[5]], GL_TEXTURE8, 2);
 			glBindVertexArray(m_vao_quad);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			CHECK_GL_ERRORS;
 		ig_shader_object.shader.disable();
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		glBlitFramebuffer(0, 0, m_framebufferWidth, m_framebufferHeight,
+			0, 0, m_framebufferWidth, m_framebufferHeight,
+              GL_COLOR_BUFFER_BIT, GL_LINEAR);
 	}
-
+	
+	CHECK_GL_ERRORS;
 }
 
 void A5::cleanup() {
@@ -902,6 +911,12 @@ void A5::IGShaderObject::create() {
 			shader.getProgramObject(), "srb_tex6");
 		usrb_tex7 = glGetUniformLocation(
 			shader.getProgramObject(), "srb_tex7");
+
+		ucolor_buffer = glGetUniformLocation(
+			shader.getProgramObject(), "color_buffer");
+		unumber_buffer = glGetUniformLocation(
+			shader.getProgramObject(), "number_buffer");
+
 	shader.disable();
 	CHECK_GL_ERRORS;
 }
@@ -909,7 +924,7 @@ void A5::IGShaderObject::create() {
 
 void A5::IGShaderObject::bindObjects() {
 	glUniform1i(uemission_tex, 0);
-
+	
 	glUniform1i(usrb_tex1, 1);
 	glUniform1i(usrb_tex2, 2);
 	glUniform1i(usrb_tex3, 3);
@@ -917,4 +932,7 @@ void A5::IGShaderObject::bindObjects() {
 	glUniform1i(usrb_tex5, 5);
 	glUniform1i(usrb_tex6, 6);	
 	glUniform1i(usrb_tex7, 7);	
+
+	glUniform1i(ucolor_buffer, 8);
+	glUniform1i(unumber_buffer, 9);
 }

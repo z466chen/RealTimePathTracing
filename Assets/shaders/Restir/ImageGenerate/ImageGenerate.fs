@@ -1,6 +1,10 @@
 #version 330
 
+#define MAXIMUM_NUMBER 1024
+
 uniform sampler2D emission_tex;
+uniform sampler2D color_buffer;
+uniform sampler2D number_buffer;
 
 uniform sampler2D srb_tex1;
 uniform sampler2D srb_tex2;
@@ -10,7 +14,8 @@ uniform sampler2D srb_tex5;
 uniform sampler2D srb_tex6;
 uniform sampler2D srb_tex7;
 
-out vec4 fragColor;
+layout (location = 0) out vec4 color;
+layout (location = 1) out vec4 M;
 
 in vec2 texCoord;
 
@@ -51,6 +56,12 @@ void main() {
     Reservior srb;
     read_srb(srb);
 
-    fragColor = vec4(texture(emission_tex, 
+    vec4 current = vec4(texture(emission_tex, 
         vec2(texCoord.x, 1 - texCoord.y)).rgb + srb.z.lo, 1.0f);
+    int number = int(texture(number_buffer, vec2(texCoord.x, 1 - texCoord.y)).r);
+    number = min(number, MAXIMUM_NUMBER-1);
+    number += 1;
+    vec4 prevColor = texture(color_buffer, vec2(texCoord.x, 1 - texCoord.y)).rgba;
+    color = vec4(prevColor.rgb*(float(number-1)/number) + current.rgb * (1.0f/number), 1.0f);
+    M = vec4(number, 0,0,1);
 }
