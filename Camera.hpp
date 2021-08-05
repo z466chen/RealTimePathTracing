@@ -16,8 +16,12 @@ class Camera {
     float yaw = 0.0f;
     float pitch = 0.0f;
 
+    bool cameraChanged = false;
+
     void __calcViewMatrix();
     void __calcCamFront();
+
+    void __cameraChanged();
 public:
     enum TRANSLATION {
         FORWARD=0, LEFT, BACKWARD, RIGHT
@@ -50,4 +54,6 @@ public:
     float zoom(float value);
 
     float setCamPos(glm::vec3 cameraPosition);
+    bool isCameraChanged();
+    void resetCameraChangedStatus();
 };

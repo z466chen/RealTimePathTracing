@@ -11,6 +11,10 @@ void Camera::setFovLimits(float min, float max) {
     max_fov = max;
 }
 
+void Camera::__cameraChanged() {
+    cameraChanged = true;
+}
+
 Camera::Camera() {}
 Camera::Camera(float fov):fov{fov}{}
 Camera::Camera(float fov, glm::vec3 camPos, glm::vec3 camFront): fov{fov},
@@ -65,6 +69,7 @@ float Camera::rotate(ROTATION type, float value) {
             __calcCamFront();
             break;
     }
+    __cameraChanged();
 
     __calcViewMatrix();
 }
@@ -84,6 +89,7 @@ float Camera::translate(TRANSLATION type, float value) {
             camPos -= value * glm::cross(camUp, camFront);
             break;  
     }
+    __cameraChanged();
 
     __calcViewMatrix();
 }
@@ -110,9 +116,20 @@ glm::vec3 Camera::getCamView() const {
 
 float Camera::zoom(float value) {
     fov = glm::clamp(fov + value, min_fov, max_fov);
+    __cameraChanged();
 }
 
 float Camera::setCamPos(glm::vec3 cameraPosition) {
     camPos = cameraPosition;
+    __cameraChanged();
     __calcViewMatrix();
+}
+
+
+bool Camera::isCameraChanged() {
+    return cameraChanged;
+}
+
+void Camera::resetCameraChangedStatus() {
+    cameraChanged = false;
 }
