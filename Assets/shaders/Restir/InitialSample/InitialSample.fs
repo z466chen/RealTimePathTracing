@@ -44,6 +44,7 @@ uniform sampler2D elem_tex;
 // uniform sampler2D perlin_tex;
 uniform sampler2D bvh_tex;
 uniform sampler2D bvh_mesh_tex;
+uniform sampler2D bump_map_tex;
 // uniform sampler2D bg_tex;
 // uniform sampler2D indata1;
 // uniform sampler2D indata2;
@@ -797,6 +798,37 @@ MaterialInfo getMaterialInfo(in Object obj, in vec3 t) {
     return info;
 }
 
+void bump_map_perturb(in Object obj, inout Intersection result) {
+    // calculate texture coords
+    vec3 center = (obj.bbox.upper_bound + obj.bbox.lower_bound)*0.5;
+    vec3 x_axis = normalize(cross(result.normal, vec3(0,1,0)));
+    float dy = (result.position.y - center.y)/(obj.bbox.upper_bound.y - obj.bbox.lower_bound.y);
+    float dx = dot(x_axis, result.position - center)/abs(dot(x_axis, obj.bbox.upper_bound - obj.bbox.lower_bound));
+    dy = dy + 0.5f;
+    dx = dx + 0.5f;
+    // vec3 b = texture(bump_map_perturb, vec2(dx, dy)).rgb;
+    // b = normalize(b*2.0f - 1.0f);
+
+    float delta = 0.015625;
+    vec3 bxplus = texture(bump_map_tex, vec2(dx+delta, dy)).rgb;
+    bxplus = normalize(bxplus*2.0f - 1.0f);
+    
+    vec3 bxminus = texture(bump_map_tex, vec2(dx-delta, dy)).rgb;
+    bxminus = normalize(bxminus*2.0f - 1.0f);
+    
+    vec3 byplus = texture(bump_map_tex, vec2(dx, dy+delta)).rgb;
+    byplus = normalize(byplus*2.0f - 1.0f);
+    
+    vec3 byminus = texture(bump_map_tex, vec2(dx, dy-delta)).rgb;
+    byminus = normalize(byminus*2.0f - 1.0f);
+    
+    float bu = (bxplus - bxminus).x*32;
+    float bv = (byplus - byminus).y*32;
+
+    vec3 D = bu*vec3(1,0,0) - bv*vec3(0,1,0);
+    result.normal = normalize(result.normal + D);
+}
+
 Intersection objTraverse(int oid, in Object obj, in Ray ray) {
     Intersection result;
     result.intersects = false;
@@ -1136,6 +1168,10 @@ Intersection objTraverse(int oid, in Object obj, in Ray ray) {
             int vertex_offset = int(obj.obj_data_1.y);
             result = bvhMeshTraverse(ray, bvh_mesh_id, vertex_offset);
             result.m = getMaterialInfo(obj, result.position);
+
+            if (oid == 0 || oid == 3) {
+                bump_map_perturb(obj, result);
+            }
             break;
         }
         case 6: {
