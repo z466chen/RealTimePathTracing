@@ -260,7 +260,6 @@ std::vector<object_reference> BVH::__constructObjectList(SceneNode *root) {
 
         if (node->m_nodeType == NodeType::GeometryNode || 
             node->m_nodeType == NodeType::CSGNode) {
-            std::cout << node->m_name << std::endl;
             objs.emplace_back(std::make_pair(node, 
                 std::make_pair(current_trans_matrix, current_inv_trans_matrix)));
         }
@@ -351,7 +350,8 @@ int BVH::__constructUbo(const BVH::BVHNode *node, const glm::mat4 &t_matrix) con
 
     if (priority == 0) {
         int id = UboConstructor::bvh_arr.size();
-        UboConstructor::bvh_arr.emplace_back(UboBVH());
+        UboBVH b;
+        UboConstructor::bvh_arr.emplace_back(b);
 
         UboConstructor::bvh_arr[id].bvh_aabb_1 = glm::vec2(node->bbox.lower_bound.x, node->bbox.lower_bound.y); 
         UboConstructor::bvh_arr[id].bvh_aabb_2 = glm::vec2(node->bbox.lower_bound.z, node->bbox.upper_bound.x); 
@@ -368,6 +368,11 @@ int BVH::__constructUbo(const BVH::BVHNode *node, const glm::mat4 &t_matrix) con
         UboConstructor::bvh_arr[id].bvh_left = __constructUbo(node->left.get(), t_matrix);
         UboConstructor::bvh_arr[id].bvh_right = __constructUbo(node->right.get(), t_matrix);
 
+        if (UboConstructor::bvh_arr[id].bvh_left > 0) {
+            UboConstructor::bvh_arr[UboConstructor::bvh_arr[id].bvh_left].obj_id_3 = id;
+            UboConstructor::bvh_arr[UboConstructor::bvh_arr[id].bvh_right].obj_id_3 = id;
+        }
+
         float *temp[4] = {
             &UboConstructor::bvh_arr[id].obj_id_1, 
             &UboConstructor::bvh_arr[id].obj_id_2, 
@@ -377,6 +382,7 @@ int BVH::__constructUbo(const BVH::BVHNode *node, const glm::mat4 &t_matrix) con
 
         for (int i = 0; i < node->objs.size(); ++i) {
             *temp[i] = node->objs[i].first->construct(node->objs[i].second.first);
+            UboConstructor::obj_bvh_reference.emplace_back(id);
             UboConstructor::obj_arr[int(*temp[i])].t_matrix = node->objs[i].second.first;
             UboConstructor::obj_arr[int(*temp[i])].inv_t_matrix = node->objs[i].second.second;
         }

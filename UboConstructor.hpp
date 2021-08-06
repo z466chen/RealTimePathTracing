@@ -97,6 +97,7 @@ public:
     static std::vector<UboVertex> vert_arr;
     static std::vector<UboElement> elem_arr;
     static std::vector<UboMaterial> mat_arr;
+    static std::vector<int> obj_bvh_reference;
     static std::vector<UboBVH> bvh_arr;
     static std::vector<UboBVH> bvh_mesh_arr;
     static std::vector<UboPerlinNoise> perlin_arr;

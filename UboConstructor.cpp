@@ -8,6 +8,7 @@ std::vector<UboObject> UboConstructor::obj_arr = {};
 std::vector<UboVertex> UboConstructor::vert_arr = {};
 std::vector<UboElement> UboConstructor::elem_arr = {};
 std::vector<UboMaterial> UboConstructor::mat_arr = {};
+std::vector<int> UboConstructor::obj_bvh_reference = {};
 std::vector<UboBVH> UboConstructor::bvh_arr = {};
 std::vector<UboBVH> UboConstructor::bvh_mesh_arr = {};
 std::vector<UboPerlinNoise> UboConstructor::perlin_arr = {};
@@ -20,6 +21,7 @@ static float getSquareSize(float size) {
 
 void UboConstructor::calcDefines() {
     defines.obj_texture_size = fmax(1 << (int)fmax(getSquareSize(obj_arr.size()*46), 0.0f), 64);
+    defines.obj_texture_size = 512;
     defines.vert_texture_size = fmax(1 << (int)fmax(getSquareSize(vert_arr.size()), 0.0f), 64);
     defines.elem_texture_size = fmax(1 << (int)fmax(getSquareSize(elem_arr.size()), 0.0f), 64);
     defines.bvh_texture_size = 1;

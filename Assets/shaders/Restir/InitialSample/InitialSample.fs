@@ -1505,7 +1505,7 @@ vec3 castRay(in Ray primaryRay, out Intersection sample_point) {
     vec3 factor = vec3(1.0f);
     int depth = 0;
 
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 7; ++i) {
 
         // if (depth > 0) {
         //     continue;

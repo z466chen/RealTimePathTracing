@@ -2,6 +2,7 @@
 
 #include "GeometryNode.hpp"
 #include <iostream>
+#include <glm/ext.hpp>
 #include "UboConstructor.hpp"
 
 //---------------------------------------------------------------------------------------
@@ -54,6 +55,8 @@ AABB GeometryNode::getAABB() const {
 }
 
 int GeometryNode::construct(const glm::mat4 &t_matrix) const {
+	std::cout << m_name << std::endl;
+
 	int pid = m_primitive->construct(t_matrix);
 	int mid = m_material->construct();
 	UboConstructor::obj_arr[pid].mat_id = mid;
@@ -62,6 +65,7 @@ int GeometryNode::construct(const glm::mat4 &t_matrix) const {
 		UboConstructor::light_arr.back().oid_and_area = glm::vec4(float(pid),getArea(t_matrix),0,0);
 	}
 	UboConstructor::obj_arr[pid].obj_data_3.x = getArea(t_matrix);
+
 	return pid;
 }
 

@@ -2,7 +2,7 @@
 
 #define M_PI 3.14159265358979323846
 #define EPSILON 0.01
-#define MAXIMUM_RESERVIOR_DEPTH 1000
+#define MAXIMUM_RESERVIOR_DEPTH 30
 
 uniform sampler2D isb_tex1;
 uniform sampler2D isb_tex2;
@@ -31,6 +31,8 @@ layout (location = 6) out vec4 outdata7;
 in vec2 texCoord;
 uniform vec4 seed = vec4(-1,-1,-1,-1);
 uniform bool initialized = false;
+uniform bool moving = false;
+uniform int mbfc = 0;
 
 struct Sample {
     vec3 xv, nv, xs, ns, lo;
@@ -110,7 +112,7 @@ float get_random_float() {
 }
 
 void update(inout Reservior R, in Sample S, float w) {
-    R.w += w;
+    R.w = min(R.w+w, 200*w);
     R.M += 1;
     float random = get_random_float();
     if (random <= w/R.w) {
@@ -132,6 +134,10 @@ void main() {
     
     float w = length(S.lo);
     if (S.oid < 0) w = 0.00001;
+    // R.w = R.w*0;
+    // if (moving) {
+    //     R.w = R.w*0;
+    // }
     R.M = min(R.M, MAXIMUM_RESERVIOR_DEPTH-1);
     update(R, S, w);
     R.W = R.w/(R.M*length(R.z.lo));

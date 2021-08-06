@@ -16,7 +16,7 @@ class Camera {
     float yaw = 0.0f;
     float pitch = 0.0f;
 
-    bool cameraChanged = false;
+    
 
     void __calcViewMatrix();
     void __calcCamFront();
@@ -31,6 +31,7 @@ public:
         YAW=0, PITCH
     };
 
+    bool cameraChanged = false;
     Camera();
     Camera(float fov);
     Camera(float fov, glm::vec3 camPos, glm::vec3 camFront);

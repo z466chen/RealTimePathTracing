@@ -40,6 +40,12 @@ private:
         // int pipeline_code;
         int frame_buffer_mode = 0;
         bool frame_initialized = false; 
+        int motion_blur_frame_count = 0;
+        float rho = 0.75f;
+        float g = 18.6f;
+        float v = 0.0f;
+        float x = 180.0f;
+        float duration = 0.0f;
     } state;
 
     Camera camera;
@@ -56,6 +62,7 @@ private:
     GLuint m_ubo_elem;
     GLuint m_ubo_bvh_tex;
     GLuint m_ubo_bvh_mesh_tex;
+    GLuint m_bump_map;
     GLuint m_ubo_perlin;
     GLuint m_ubo_mat;
     GLuint m_ubo_bvh;
@@ -107,6 +114,7 @@ private:
         GLuint uPrevPosTex;
         GLuint uPrevNormalTex;
         GLuint uPrevIdTex;
+        GLuint ubump_map_tex;
 
         GLuint uambient;
         GLuint unol;
@@ -147,6 +155,8 @@ private:
 
         GLuint useed;
         GLuint uinitialized;
+        GLuint umbfc;
+        GLuint umoving;
         
         TRBShaderObject(const A5 &x):parent{x} {}
         void bindObjects();
@@ -242,4 +252,5 @@ private:
     void use_fbo(FrameBufferObject &obj, GLuint TexOffset, int number);
     void attach_fbo(FrameBufferObject &obj);
     void camera_update(GLuint camera_id);
+    void update_position(int oid, int axis, glm::vec3 delta);
 };

@@ -12,9 +12,10 @@
 
 #define SPP 2
 
-const float CAMERA_TRANSLATION_SPEED = 200.0f;
+const float CAMERA_TRANSLATION_SPEED = 800.0f;
 const float CAMERA_ROTATE_SPEED = 9.0f;
-
+const int MAX_FRAME_DELAY = 1;
+const int SPHERE_ID_1 = 2;
 
 CS488Window * A5::window = nullptr;
 
@@ -152,17 +153,17 @@ void A5::init_shaders() {
 }
 
 void A5::init_textures() {
-	// glActiveTexture(GL_TEXTURE5);
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glActiveTexture(GL_TEXTURE5);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	
-	// int code = __loadTextureRGBA(m_bg_texture,getAssetFilePath("background.png").c_str());
-	// if (code < 0) {
-	// 	return;
-	// }
-	CHECK_GL_ERRORS;
+	int code = __loadTextureRGBA(m_bump_map,getAssetFilePath("bump_map.png").c_str());
+	if (code < 0) {
+		return;
+	}
+	
 
 	init_fbo(fbos[0], 7);
 	init_fbo(fbos[1], 7);
@@ -171,6 +172,7 @@ void A5::init_textures() {
 	init_fbo(fbos[4], 7);
 	init_fbo(fbos[5], 2);
 	init_fbo(fbos[6], 2);
+	CHECK_GL_ERRORS;
 }
 
 void A5::init_uniforms() {
@@ -267,6 +269,55 @@ void A5::init() {
     init_uniforms();
 }
 
+void A5::update_position(int oid, int axis, glm::vec3 delta) {
+	UboObject &obj = UboConstructor::obj_arr[oid];
+	obj.t_matrix = glm::translate(obj.t_matrix,delta);
+	obj.inv_t_matrix = glm::inverse(obj.t_matrix);
+	int bvh_node_id = UboConstructor::obj_bvh_reference[oid];
+	
+	AABB bbox;
+	bbox.lower_bound = glm::vec3(obj.obj_aabb_1.x, obj.obj_aabb_1.y, obj.obj_aabb_2.x) + delta;
+	bbox.upper_bound = glm::vec3(obj.obj_aabb_2.y, obj.obj_aabb_3.x, obj.obj_aabb_3.y) + delta;
+
+	obj.obj_aabb_1 = glm::vec2(bbox.lower_bound.x, bbox.lower_bound.y);
+	obj.obj_aabb_2 = glm::vec2(bbox.lower_bound.z, bbox.upper_bound.x);
+	obj.obj_aabb_3 = glm::vec2( bbox.upper_bound.y,  bbox.upper_bound.z);
+	
+	int currentid = bvh_node_id;
+	glBindBuffer(GL_UNIFORM_BUFFER, m_ubo_bvh);
+	while(currentid >= 0) {
+		UboBVH &bvh = UboConstructor::bvh_arr[currentid];
+		AABB bvhbox;
+		bvhbox.lower_bound = glm::vec3(bvh.bvh_aabb_1.x, bvh.bvh_aabb_1.y, bvh.bvh_aabb_2.x);
+		bvhbox.upper_bound = glm::vec3(bvh.bvh_aabb_2.y, bvh.bvh_aabb_3.x, bvh.bvh_aabb_3.y);
+		bvhbox = bbox + bvhbox;
+		bvh.bvh_aabb_1 = glm::vec2(bvhbox.lower_bound.x, bvhbox.lower_bound.y);
+		bvh.bvh_aabb_2 = glm::vec2(bvhbox.lower_bound.z, bvhbox.upper_bound.x);
+		bvh.bvh_aabb_3 = glm::vec2( bvhbox.upper_bound.y,  bvhbox.upper_bound.z);
+		int i = currentid;
+        glBufferSubData(GL_UNIFORM_BUFFER, i*48+0, 8, glm::value_ptr(bvh.bvh_aabb_1));
+		glBufferSubData(GL_UNIFORM_BUFFER, i*48+8, 8, glm::value_ptr(bvh.bvh_aabb_2));
+		glBufferSubData(GL_UNIFORM_BUFFER, i*48+16, 8, glm::value_ptr(bvh.bvh_aabb_3));
+		glBufferSubData(GL_UNIFORM_BUFFER, i*48+24, 4, &bvh.bvh_left);
+		glBufferSubData(GL_UNIFORM_BUFFER, i*48+28, 4, &bvh.bvh_right);
+		glBufferSubData(GL_UNIFORM_BUFFER, i*48+32, 4, &bvh.obj_id_1);
+		glBufferSubData(GL_UNIFORM_BUFFER, i*48+36, 4, &bvh.obj_id_2);
+		glBufferSubData(GL_UNIFORM_BUFFER, i*48+40, 4, &bvh.obj_id_3);
+		glBufferSubData(GL_UNIFORM_BUFFER, i*48+44, 4, &bvh.obj_id_4); 
+        currentid = bvh.obj_id_3;
+	}
+	CHECK_GL_ERRORS;
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	glBindTexture(GL_TEXTURE_2D, m_ubo_obj);
+	float temp[46];
+	memcpy(temp, &obj, sizeof(float)*46);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 92, 0, 46, 
+		1, GL_RED, GL_FLOAT, temp);
+	glBindTexture(GL_TEXTURE_2D,0);
+	CHECK_GL_ERRORS;
+}
+
 void A5::appLogic()
 {
 
@@ -282,7 +333,21 @@ void A5::appLogic()
 		camera.translate(Camera::TRANSLATION::RIGHT, delta);
 	}
 
-	state.prev_time_app = glfwGetTime();
+	float current = glfwGetTime();
+
+	const int start_drop_distance = 180;
+	// if (current >= 20 && current <= 20+((1+state.rho)/(1-state.rho))*sqrt(2*180.0f/9.8f)) {
+	// 	float delta_t = (current - state.prev_time_app);
+	// 	update_position(2, 1, glm::vec3(0,state.v*delta_t,0));
+	// 	state.x = state.x + state.v*delta_t;
+	// 	if (state.x < 0.01) {
+	// 		state.v = state.rho * (-state.v);
+	// 	} else {
+	// 		state.v = state.v - state.g*delta_t;
+	// 	}
+	// 	camera.cameraChanged = true;
+	// }
+	state.prev_time_app = current;
 }
 
 //----------------------------------------------------------------------------------------
@@ -320,18 +385,6 @@ void A5::draw() {
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-	if (camera.isCameraChanged()) {
-		state.frame_initialized = false;
-		// clean all buffer data if camera changed
-		for (int i = 0; i < 7; ++i) {
-			attach_fbo(fbos[i]);
-		}
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		camera.resetCameraChangedStatus();
-	}
-	// glEnable(GL_DEPTH_TEST);
-	glm::vec4 seed = glm::vec4(get_random_float(), get_random_float(),get_random_float(),get_random_float());
-
 	std::vector<int> frame_buffer_sequence;
 	if (state.frame_buffer_mode == 0) {
 		frame_buffer_sequence = {4,2,0,3,1,5,6};
@@ -340,6 +393,21 @@ void A5::draw() {
 		frame_buffer_sequence = {4,0,2,1,3,6,5};
 		state.frame_buffer_mode = 0;
 	}
+
+	bool camera_moving = camera.isCameraChanged();
+	if (camera_moving) {
+		state.frame_initialized = false;
+		// clean all buffer data if camera changed
+		for (int i = 0; i < 7; ++i) {
+			attach_fbo(fbos[frame_buffer_sequence[i]]);
+		}
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		camera.resetCameraChangedStatus();
+	}
+	glEnable(GL_DEPTH_TEST);
+	glm::vec4 seed = glm::vec4(get_random_float(), get_random_float(),get_random_float(),get_random_float());
+
+
 
 	{
 		attach_fbo(fbos[frame_buffer_sequence[0]]);
@@ -369,6 +437,8 @@ void A5::draw() {
 			use_fbo(fbos[frame_buffer_sequence[1]], GL_TEXTURE7, 7);
 			glUniform4fv(trb_shader_object.useed, 1, glm::value_ptr(seed));
 			glUniform1i(trb_shader_object.uinitialized, state.frame_initialized);
+			glUniform1i(trb_shader_object.umbfc, state.motion_blur_frame_count);
+			glUniform1i(trb_shader_object.umoving, camera_moving);
 			glBindVertexArray(m_vao_quad);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			CHECK_GL_ERRORS;
@@ -413,7 +483,8 @@ void A5::draw() {
 			0, 0, m_framebufferWidth, m_framebufferHeight,
               GL_COLOR_BUFFER_BIT, GL_LINEAR);
 	}
-	
+	state.motion_blur_frame_count = (state.motion_blur_frame_count+1)%MAX_FRAME_DELAY;
+
 	CHECK_GL_ERRORS;
 }
 
@@ -554,8 +625,8 @@ void A5::ISBShaderObject::create() {
 			shader.getProgramObject(), "bvh_tex");
 		ubvhMeshTex = glGetUniformLocation(
 			shader.getProgramObject(), "bvh_mesh_tex");
-		// ubackground = glGetUniformLocation(
-		// 	shader.getProgramObject(), "bg_tex");
+		ubump_map_tex = glGetUniformLocation(
+			shader.getProgramObject(), "bump_map_tex");
 		// uPrevPosTex = glGetUniformLocation(
 		// 	shader.getProgramObject(), "indata1");
 		// uPrevNormalTex = glGetUniformLocation(
@@ -595,6 +666,8 @@ void A5::ISBShaderObject::bindObjects() {
 	glUniform1i(ubvhTex, 3);
 	
 	glUniform1i(ubvhMeshTex, 4);
+	glUniform1i(ubump_map_tex, 5);
+	
 	// glUniform1i(ubackground, 5);
 	// glUniform1i(uPrevPosTex, 6);
 	// glUniform1i(uPrevNormalTex, 7);
@@ -626,8 +699,8 @@ void A5::ISBShaderObject::bindObjects() {
 		glBindTexture(GL_TEXTURE_2D, parent.m_ubo_bvh_mesh_tex);
 	}
 
-	// glActiveTexture(GL_TEXTURE5);
-	// glBindTexture(GL_TEXTURE_2D, parent.m_bg_texture);
+	glActiveTexture(GL_TEXTURE5);
+	glBindTexture(GL_TEXTURE_2D, parent.m_bump_map);
 	
 	glBindBuffer(GL_UNIFORM_BUFFER, parent.m_ubo_perlin);
 	glBindBuffer(GL_UNIFORM_BUFFER, parent.m_ubo_mat);
@@ -699,6 +772,10 @@ void A5::TRBShaderObject::create() {
 			shader.getProgramObject(), "seed");
 		uinitialized = glGetUniformLocation(
 			shader.getProgramObject(), "initialized");
+		umbfc = glGetUniformLocation(
+			shader.getProgramObject(), "mbfc");
+		umoving = glGetUniformLocation(
+			shader.getProgramObject(), "moving");
 	shader.disable();
 	CHECK_GL_ERRORS;
 }
