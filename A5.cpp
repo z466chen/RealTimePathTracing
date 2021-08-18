@@ -12,7 +12,7 @@
 
 #define SPP 2
 
-const float CAMERA_TRANSLATION_SPEED = 800.0f;
+const float CAMERA_TRANSLATION_SPEED = 2000.0f;
 const float CAMERA_ROTATE_SPEED = 9.0f;
 const int MAX_FRAME_DELAY = 1;
 const int SPHERE_ID_1 = 2;
@@ -150,6 +150,7 @@ void A5::init_shaders() {
 	trb_shader_object.create();
 	srb_shader_object.create();
 	ig_shader_object.create();
+	fxaa_shader_object.create();
 }
 
 void A5::init_textures() {
@@ -372,8 +373,12 @@ void A5::guiLogic()
 			glfwSetWindowShouldClose(m_window, GL_TRUE);
 		}
 
+		ImGui::DragFloat("gs_thresh", &state.gs_thresh);
+		ImGui::DragFloat("gs_mult", &state.gs_mult);
+		ImGui::DragFloat("gs_reduce", &state.gs_reduce);
+		ImGui::DragFloat("delta_max", &state.delta_max);
+		
 		ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
-
 	ImGui::End();
 
 	if( showTestWindow ) {
@@ -477,12 +482,30 @@ void A5::draw() {
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			CHECK_GL_ERRORS;
 		ig_shader_object.shader.disable();
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		glBlitFramebuffer(0, 0, m_framebufferWidth, m_framebufferHeight,
-			0, 0, m_framebufferWidth, m_framebufferHeight,
-              GL_COLOR_BUFFER_BIT, GL_LINEAR);
+		// glReadBuffer(GL_COLOR_ATTACHMENT0);
+		// glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		// glBlitFramebuffer(0, 0, m_framebufferWidth, m_framebufferHeight,
+		// 	0, 0, m_framebufferWidth, m_framebufferHeight,
+        //       GL_COLOR_BUFFER_BIT, GL_LINEAR);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
+
+	{
+		fxaa_shader_object.shader.enable();
+			fxaa_shader_object.bindObjects();
+			use_fbo(fbos[frame_buffer_sequence[6]], GL_TEXTURE0, 1);
+			glUniform2f(fxaa_shader_object.uwindow_size,m_framebufferWidth, m_framebufferHeight);
+			glUniform1f(fxaa_shader_object.ugs_thresh,state.gs_thresh);
+			glUniform1f(fxaa_shader_object.ugs_mult,state.gs_mult);
+			glUniform1f(fxaa_shader_object.ugs_reduce,state.gs_reduce);
+			glUniform1f(fxaa_shader_object.udelta_max,state.delta_max);
+			
+			glBindVertexArray(m_vao_quad);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			CHECK_GL_ERRORS;
+		fxaa_shader_object.shader.disable();
+	}
+
 	state.motion_blur_frame_count = (state.motion_blur_frame_count+1)%MAX_FRAME_DELAY;
 
 	CHECK_GL_ERRORS;
@@ -549,7 +572,25 @@ bool A5::windowResizeEvent(int width, int height) {
 
 bool A5::keyInputEvent(int key, int action, int mods) {
 	bool eventHandled(false);
-
+	if (action == GLFW_PRESS) {
+		if (key == GLFW_KEY_1) {
+			state.gs_thresh = glm::clamp(state.gs_thresh+0.05f,0.05f, 100.0f);
+		} else if (key == GLFW_KEY_2) {
+			state.gs_thresh = glm::clamp(state.gs_thresh-0.05f,0.05f, 100.0f);
+		} else if (key == GLFW_KEY_3) {
+			state.gs_mult = glm::clamp(state.gs_mult/2.0f,0.0f, 32.0f); 
+		} else if (key == GLFW_KEY_4) {
+			state.gs_mult = glm::clamp(state.gs_mult*2.0f,0.0f, 32.0f); 
+		} else if (key == GLFW_KEY_5) {
+			state.gs_reduce = glm::clamp(state.gs_reduce/2.0f,0.0f, 32.0f); 
+		} else if (key == GLFW_KEY_6) {
+			state.gs_reduce = glm::clamp(state.gs_reduce*2.0f,0.0f, 32.0f); 
+		} else if (key == GLFW_KEY_7) {
+			state.delta_max = glm::clamp(state.delta_max-1.0f,1.0f, 128.0f); 
+		} else if (key == GLFW_KEY_8) {
+			state.delta_max = glm::clamp(state.delta_max+1.0f,1.0f, 128.0f);
+		}
+	}
 	return eventHandled;
 }
 
@@ -1012,4 +1053,40 @@ void A5::IGShaderObject::bindObjects() {
 
 	glUniform1i(ucolor_buffer, 8);
 	glUniform1i(unumber_buffer, 9);
+}
+
+void A5::FXAAShaderObject::create() {
+	shader.generateProgramObject();
+
+	std::string frag_shader_src;
+	frag_shader_src = readFile(getAssetFilePath(fs_name));
+
+	std::ofstream ofs;
+	ofs.open (getAssetFilePath("shaders/temp.fs"), std::ofstream::out);
+	ofs << frag_shader_src;
+	ofs.close();
+
+	shader.attachVertexShader(
+		getAssetFilePath(vs_name).c_str()
+	);
+    shader.attachFragmentShader(
+        getAssetFilePath("shaders/temp.fs").c_str()
+    );
+
+    shader.link();
+
+	shader.enable();
+		ucolor_tex = glGetUniformLocation(shader.getProgramObject(), "color_tex");
+		uwindow_size = glGetUniformLocation(shader.getProgramObject(), "window_size");
+		ugs_thresh = glGetUniformLocation(shader.getProgramObject(), "gs_thresh");
+		ugs_mult = glGetUniformLocation(shader.getProgramObject(), "gs_mult");
+		ugs_reduce = glGetUniformLocation(shader.getProgramObject(), "gs_reduce");
+		udelta_max = glGetUniformLocation(shader.getProgramObject(), "delta_max");
+	shader.disable();
+	CHECK_GL_ERRORS;
+}
+
+
+void A5::FXAAShaderObject::bindObjects() {
+	glUniform1i(ucolor_tex, 0);
 }

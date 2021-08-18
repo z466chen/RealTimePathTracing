@@ -46,6 +46,17 @@ private:
         float v = 0.0f;
         float x = 180.0f;
         float duration = 0.0f;
+
+        // float gs_thresh = 0.5f;
+        // float gs_mult = 0.125f;
+        // float gs_reduce = 0.125f;
+        // float delta_max = 8.0f;
+
+
+        float gs_thresh = 2.0f;
+        float gs_mult = 1.0f/64.0f;
+        float gs_reduce = 1.0f/64.0f;
+        float delta_max = 16.0f;
     } state;
 
     Camera camera;
@@ -241,6 +252,29 @@ private:
         void bindObjects();
         void create();
     } ig_shader_object = IGShaderObject(*this);
+
+
+    class FXAAShaderObject {
+    public:
+        const A5 &parent;
+
+        const char * vs_name = "shaders/FXAA/Default.vs";
+        const char * fs_name = "shaders/FXAA/FXAA.fs";
+
+        ShaderProgram shader;
+
+        GLuint ucolor_tex;
+        GLuint uwindow_size;
+        GLuint ugs_thresh;
+        GLuint ugs_mult;
+        GLuint ugs_reduce;
+        GLuint udelta_max;
+
+        FXAAShaderObject(const A5 &x):parent{x} {}
+        void bindObjects();
+        void create();
+    } fxaa_shader_object = FXAAShaderObject(*this);
+
 
     // initialization functions
     void init_shaders();

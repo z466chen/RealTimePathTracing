@@ -26,7 +26,16 @@ if os.get() == "linux" then
     linkLibs = {
         "cs488-framework",
         "lua",
+        "imgui",
+        "glfw3",
         "lodepng",
+        "GL",
+        "Xinerama",
+        "Xcursor",
+        "Xxf86vm",
+        "Xi",
+        "Xrandr",
+        "X11",
         "stdc++",
         "dl",
         "pthread"
@@ -42,7 +51,7 @@ buildOptions = {"-std=c++14"}
 solution "CS488-Projects"
     configurations { "Debug", "Release" }
 
-    project "A4"
+    project "A5"
         kind "ConsoleApp"
         language "C++"
         location "build"
